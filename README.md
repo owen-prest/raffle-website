@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# raffle-website
-This is a project for my portfolio. I am going to create a website that allows users to enter raffles and view a live draw.
-=======
 # raffle-project
 
 This is a website that allows users to enter raffles and view a live draw.
@@ -50,4 +46,3 @@ npm run build
 ```sh
 npm run lint
 ```
->>>>>>> 6413040 (initial commit)
