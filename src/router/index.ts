@@ -1,14 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-const Placeholder = { template: '<div></div>' }
-
-
 /* Web Pages */
 const routes = [
-  { path: '/', name: 'Dashboard', component: Placeholder },
-  { path: '/Raffles', name: 'Raffles', component: Placeholder },
-  { path: '/Profile', name: 'Profile', component: Placeholder },
-  { path: '/Login', name: 'Login', component: Placeholder },
+  { path: '/',
+    name: 'Dashboard',
+    component: import('../Views/Dashboard.vue') },
+  { path: '/Raffles',
+    name: 'Raffles',
+    component: import('../Views/Raffles.vue') },
+  { path: '/Login',
+    name: 'Login',
+    component: import('../Views/Login.vue') },
 ]
 
 export default createRouter({
