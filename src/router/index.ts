@@ -1,8 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [],
-})
+const Placeholder = { template: '<div></div>' }
 
-export default router
+
+/* Web Pages */
+const routes = [
+  { path: '/', name: 'Dashboard', component: Placeholder },
+  { path: '/Raffles', name: 'Raffles', component: Placeholder },
+  { path: '/Profile', name: 'Profile', component: Placeholder },
+  { path: '/Login', name: 'Login', component: Placeholder },
+]
+
+export default createRouter({
+  history: createWebHistory(),
+  routes
+})
