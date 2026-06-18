@@ -22,8 +22,6 @@
   ]
 </script>
 
-
-
 <template>
   <nav :class="['sideNav', {collapsed}]">
 
@@ -45,7 +43,7 @@
         :to="item.path"
         class="nav-item"
       >
-        <span class="nav-icon"><i :class="item.icon"></i>></span>
+        <span class="nav-icon"><i :class="item.icon"></i></span>
         <span :class="['nav-label', { hidden:collapsed }]">{{ item.label}}</span>
         <span v-if="item.badge" :class="['badge', { hidden:collapsed }]">{{ item.badge }}</span>
       </router-link>
@@ -69,7 +67,6 @@
 
   </nav>
 </template>
-
 
 <style>
   .sideNav {
@@ -110,22 +107,19 @@
     color: #0F1C2E;
     flex-shrink: 0;
   }
-  .logo-text {
-    display: flex;
-    flex-direction: column;
-    /* fixes text wrap onto two lines */
-    white-space: nowrap;
-    opacity: 1;
-    transition: opacity 0.3s ease;
+  /*spins the logo when collapsed */
+  .logo-icon i {
+    transition: transform 0.4s ease;
   }
-  .logo-text.hidden{
-    opacity: 0;
-    transition: opacity 0.1s ease;
+  .sideNav.collapsed .logo-icon i {
+    transform: rotate(180deg);
   }
   .logo-name {
     font-size: 15px;
     font-weight: 500;
     color: #F5C842;
+    flex-direction: column;
+    display: flex;
   }
   .logo-sub {
     font-size: 11px;
@@ -162,7 +156,7 @@
     border-left: 3px solid rgba(245, 200, 66, 0.3);
 
   }
-  /* Vue Router automatically adds this class to the current page link */
+  /* vue-router automatically adds this class to the current page link */
   .nav-item.router-link-active {
     background: #162840;
     color: #F5C842;
@@ -176,9 +170,6 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-  }
-  .nav-label {
-    font-size: 14px;
   }
   .badge {
     background: #F5C842;
@@ -196,23 +187,16 @@
   .collapse-btn:hover{
     color: #c8dcea;
   }
-  .logo-icon i {
-    transition: transform 0.4s ease;
+  /* fade transition for all text in sidebar */
+  .nav-label, .badge, .logo-text {
+    opacity: 1;
+    white-space: nowrap;
+    transition: opacity 0.4s ease 0.25s;
   }
-  .logo-text {
-    opacity: 0.1s ease;
+  .hidden {
+    opacity: 0;
+    width: 0;
+    transition: opacity 0.1s ease;
+    overflow:hidden;
   }
-  .sideNav.collapsed .logo-icon i {
-    transform: rotate(180deg);
-  }
-
-.hidden {
-  opacity: 0;
-  transition: opacity 0.1s ease;
-}
-.nav-label, .badge, .logo-text {
-  opacity: 1;
-  white-space: nowrap;
-  transition: opacity 0.4s ease 0.25s;
-}
 </style>
