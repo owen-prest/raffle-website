@@ -1,0 +1,30 @@
+/* src/assets/global.css */
+
+.link-hover {
+  color: inherit;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  background-color: transparent;
+}
+
+.link-hover:hover {
+  color: #F5C842;
+  transform: translateY(-2px);
+}
+
+@keyframes shake {
+  0%, 70%, 100%  { transform: translateX(0); }
+  75% { transform: translateX(-5px); }
+  80% { transform: translateX(-5px); }
+  85% { transform: translateX(5px); }
+  90% { transform: translateX(-5px); }
+  95%{ transform: translateX(5px); }
+}
+
+.shake {
+  display: inline-block;
+  animation-name: shake;
+  animation-duration: 6s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease;
+}
