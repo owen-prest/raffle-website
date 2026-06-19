@@ -18,7 +18,7 @@
   const navItems: NavItem[] = [
     { label: 'Dashboard', icon: 'fa-solid fa-house', path: '/' },
     { label: 'Raffles', icon: 'fas fa-ticket-alt', path: '/raffles' },
-    { label: 'Profile', icon: 'fa-solid fa-user', path: '/profile' },
+    { label: 'Login', icon: 'fa-solid fa-user', path: '/Login' },
   ]
 </script>
 
@@ -154,22 +154,24 @@
     background: #162840;
     color: #c8dcea;
     border-left: 3px solid rgba(245, 200, 66, 0.3);
-
   }
   /* vue-router automatically adds this class to the current page link */
   .nav-item.router-link-active {
     background: #162840;
     color: #F5C842;
     border-left: 3px solid #F5C842;
-
   }
-  .nav-icon {
+  .nav-icon i{
+    background-color: transparent;
+  }
+  .nav-icon{
     font-size: 16px;
     min-width: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    background-color: transparent;
   }
   .badge {
     background: #F5C842;
