@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { useRouter} from 'vue-router'
+  import { login } from '@/stores/auth'
 
   const router = useRouter()
 
@@ -27,8 +28,9 @@
       errorMessage.value = 'Please enter a valid email'
       return
     }
-    // check if credentials match fake user
+    // check if credentials match fake user, sets status to logged (Auth.ts) and redirects
     if (email.value === fakeUser.email && password.value === fakeUser.password){
+      login()
       router.push('/')
     } else {
       errorMessage.value = 'Invalid email or password'
