@@ -10,12 +10,21 @@ const username = ref('you username')
 const email = ref('your@email.com')
 const bio = ref('your bio')
 
+//tracks if the user is in edit mode
+const isEditing = ref(false)
+
+// tracks if the users login status
 const handleLogout = () => {
   logout()
   router.push('/login')
 }
+const handleEdit = () => {
+  isEditing.value = true
+}
 
+// saves changes to the profile
 const handleSave =() => {
+  isEditing.value = false
   console.group('saved!')
 }
 </script>
@@ -34,21 +43,25 @@ const handleSave =() => {
         <div class="profile-info">
           <div class="profile-field">
             <label class="profile-label">Your Username</label>
-            <input  v-model="username" class="profile-input" type="text"/>
+            <input  v-if="isEditing" v-model="username" class="profile-input" type="text"/>
+            <span v-else class="profile-input">{{ username }}</span>
           </div>
           <div class="profile-field">
             <label class="profile-label">Your Email</label>
-            <input  v-model="email" class="profile-input" type="email"/>
+            <input  v-if="isEditing" v-model="email" class="profile-input" type="email"/>
+            <span v-else class="profile-input">{{ email }}</span>
           </div>
           <div class="profile-field">
             <label class="profile-label">Bio</label>
-            <textarea v-model="bio" class="profile-input profile-bio"></textarea>
+            <textarea  v-if="isEditing" v-model="bio" class="profile-input profile-bio"></textarea>
+            <span v-else class="profile-input profile-bio">{{ bio }}</span>
           </div>
         </div>
       </div>
 
       <div class="profile-actions">
-        <button class="save-btn" @click="handleSave">Saves</button>
+        <button class="save-btn" @click="handleEdit" v-if="!isEditing">Edit</button>
+        <button class="save-btn" @click="handleSave" v-if="isEditing">Save</button>
         <button class="logout-btn" @click="handleLogout">Logout</button>
       </div>
 
@@ -120,10 +133,12 @@ const handleSave =() => {
   border-radius: 8px;
   padding: 10px 14px;
   color: #E6EDF3;
-  font-size: 14px;
   outline: none;
   transition: border 0.2s ease;
   max-width: 300px;
+  font-size: 16px;
+  font-family: inherit;
+  display: block; /* makes span behave the same as input */
 }
 .profile-input:focus{
   border: 1px solid #F5C842;
