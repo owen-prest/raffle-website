@@ -166,6 +166,7 @@ const handleSave =() => {
   font-weight: 500;
   cursor:pointer;
   transition:background 0.2s ease;
+  width: 80px;
 }
 .save-btn:hover{
   background-color: #e6b800;
@@ -180,6 +181,7 @@ const handleSave =() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  width: 80px;
 }
 .logout-btn:hover{
   background-color: #ff6b6b;
