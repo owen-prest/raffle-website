@@ -3,7 +3,6 @@
   import { RouterLink } from 'vue-router'
   import { isLoggedIn } from '@/stores/auth'
 
-
   interface NavItem{
     label: string
     icon: string
