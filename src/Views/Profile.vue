@@ -27,24 +27,31 @@ const handleSave =() => {
       <h1 class="profile-title">Hello {{ username }}>!</h1>
 
         <div class="profile-body">
-
           <div class ="profile-left">
             <img class="profile-image" :src="profileImg" alt="profile image">
           </div>
 
           <div class="profile-info">
             <div class="profile-field">
-              <h1 class="profile-text">Your Username</h1><span class="profile-text">your username</span>
+              <label class="profile-label">Your Username</label>
+              <input  v-model="username" class="profile-input" type="text"/>
             </div>
             <div lass="profile-field">
-              <h1 class="profile-text">Change Password</h1><span class="profile-text">dont show password</span>
+              <label class="profile-label">Change Password</label>
+              <input  v-model="email" class="profile-input" type="email"/>
             </div>
             <div lass="profile-field">
-              <h1 class="profile-text">Your Bio</h1>
+              <label class="profile-label">Bio</label>
+              <textarea v-model="bio" class="profile-input profile-bio"></textarea>
             </div>
           </div>
-
         </div>
+
+        <div class="profile-actions">
+          <button class="save-btn" @click="handleSave">Saves</button>
+          <button class="logout-btn" @click="handleLogout">Logout</button>
+        </div>
+
     </div>
 
   </div>
