@@ -28,3 +28,12 @@
   animation-iteration-count: infinite;
   animation-timing-function: ease;
 }
+
+/* global button squish effect */
+button {
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+button:active {
+  transform: scale(0.95);
+}
