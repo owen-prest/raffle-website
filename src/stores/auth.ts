@@ -1,13 +1,12 @@
 import{ ref } from 'vue'
 
-const isLoggedIn = ref(false)
+export const isLoggedIn = ref(false)
 
 // tracks log in status of the user
-const login = () => {
+export const login = () => {
   isLoggedIn.value = true
 }
-const logout = () => {
+export const logout = () => {
   isLoggedIn.value = false
 }
 
-export { isLoggedIn, login, logout}

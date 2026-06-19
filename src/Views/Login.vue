@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { useRouter} from 'vue-router'
-  import { login } from '@/stores/auth'
+  import { isLoggedIn, login } from '@/stores/auth'
 
   const router = useRouter()
 
@@ -10,7 +10,7 @@
   const errorMessage = ref('')
 
   const fakeUser = {
-    email:'test@email.com',
+    email:'test@example.com',
     password:'password123'
   }
 
@@ -30,7 +30,9 @@
     }
     // check if credentials match fake user, sets status to logged (Auth.ts) and redirects
     if (email.value === fakeUser.email && password.value === fakeUser.password){
+      console.log('login called')
       login()
+      console.log('isLoggedIn', isLoggedIn.value)
       router.push('/')
     } else {
       errorMessage.value = 'Invalid email or password'

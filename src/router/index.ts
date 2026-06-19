@@ -11,6 +11,11 @@ const routes = [
   { path: '/Login',
     name: 'Login',
     component: import('../Views/Login.vue') },
+    {
+      path: '/Profile',
+      name: 'Profile',
+      component: import('../Views/Profile.vue')
+    }
 ]
 
 export default createRouter({

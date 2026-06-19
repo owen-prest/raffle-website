@@ -1,6 +1,8 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, computed } from 'vue'
   import { RouterLink } from 'vue-router'
+  import { isLoggedIn } from '@/stores/auth'
+
 
   interface NavItem{
     label: string
@@ -13,13 +15,17 @@
   // ref() makes collapsed reactive so the template updates automatically
   const collapsed=ref(false)
 
+const navItems: NavItem[] = [
+  { label: 'Dashboard', icon: 'fa-solid fa-house', path: '/' },
+  { label: 'Raffles', icon: 'fas fa-ticket-alt', path: '/raffles' },
+]
 
-  //web pages
-  const navItems: NavItem[] = [
-    { label: 'Dashboard', icon: 'fa-solid fa-house', path: '/' },
-    { label: 'Raffles', icon: 'fas fa-ticket-alt', path: '/raffles' },
-    { label: 'Login', icon: 'fa-solid fa-user', path: '/Login' },
-  ]
+// switches between Login and Profile based on auth state
+const authItem = computed<NavItem>(() =>
+  isLoggedIn.value
+    ? { label: 'Profile', icon: 'fa-solid fa-user', path: '/profile' }
+    : { label: 'Login', icon: 'fa-solid fa-right-to-bracket', path: '/login' }
+)
 </script>
 
 <template>
@@ -46,6 +52,12 @@
         <span class="nav-icon"><i :class="item.icon"></i></span>
         <span :class="['nav-label', { hidden:collapsed }]">{{ item.label}}</span>
         <span v-if="item.badge" :class="['badge', { hidden:collapsed }]">{{ item.badge }}</span>
+      </router-link>
+
+      <!-- dynamically switches between Login and Profile -->
+      <router-link :to="authItem.path" class="nav-item">
+        <span class="nav-icon"><i :class="authItem.icon"></i></span>
+        <span :class="['nav-label', { hidden:collapsed }]">{{ authItem.label }}</span>
       </router-link>
     </div>
 
