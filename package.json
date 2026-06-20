@@ -17,6 +17,7 @@
     "@fortawesome/fontawesome-free": "^7.2.0",
     "package-lock.json": "^1.0.0",
     "rm": "^0.1.8",
+    "swiper": "^12.2.0",
     "vue": "^3.5.32",
     "vue-router": "^5.1.0"
   },
