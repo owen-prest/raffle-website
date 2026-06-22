@@ -19,10 +19,10 @@
     margin:0;
     padding:0;
     box-sizing:border-box;
-    background-color: #0B1220;
   }
   body{
     overflow:hidden;
+    background-color: #0B1220;
   }
   .layout{
     display:flex; height:100vh; overflow: visible;
