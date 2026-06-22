@@ -52,7 +52,7 @@
   }
   .footer .links a{
     color: #6a849e;
-    text-decoration: underline;
+    text-decoration: none;
     transition: opacity 0.3s ease;
     padding: 0 12px;
     border-right: 1px solid rgba(245, 200, 66, 0.5);
