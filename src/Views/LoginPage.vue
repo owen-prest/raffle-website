@@ -73,7 +73,8 @@
   border: 1px solid rgba( 255, 255, 255, 0.1);
 }
 .login-title{
-  background-color: #F5C842;;
+  background-color: transparent;
+  color: #F5C842;
   font-size:24px;
   margin-bottom: 24px;
   text-align: center;
