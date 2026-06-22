@@ -1,53 +1,21 @@
-<<<<<<< HEAD
-# raffle-website
-This is a project for my portfolio. I am going to create a website that allows users to enter raffles and view a live draw.
-=======
 # raffle-project
-
 This is a website that allows users to enter raffles and view a live draw.
 
-## Recommended IDE Setup
+## Engineering & Workflow
+I am committed to maintaining a professional development lifecycle to ensure high-quality, maintainable code. Key practices implemented in this project:
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
+* **Feature-Branch Workflow**: All new functionality is developed in isolated branches to maintain a clean, stable codebase.
+* **Linear History Management**: I utilize `rebase` over `merge` when updating feature branches to maintain a clean, readable project history.
+* **Repository Hygiene**: I treat branches as disposable "scratchpads"—merging completed features into the main development line and pruning remote branches immediately to keep the repository organized.
 
 ## Project Setup
+- `yarn install`: Install dependencies.
+- `yarn dev`: Compile and Hot-Reload for development.
+- `yarn build`: Type-Check, compile, and minify for production.
+- `yarn lint`: Lint the project with ESLint.
 
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
->>>>>>> 6413040 (initial commit)
+## Lessons Learned
+- **Documentation Standards**: I learned that clear, concise documentation—like maintaining an accurate README.md—is just as critical to project success as the code itself.
+- **Dependency Management**: I transitioned from npm to yarn to take advantage of faster dependency locking, ensuring my project remains stable and consistent.
+- **Component Scalability**: I learned that hardcoding complex UI components like carousels can be difficult to maintain, so I opted for `Swiper.js` to ensure the layout is cleaner and easier to read.
+- **Git Workflow Optimisation**: During production, I learned to prioritize rebasing over merging develop into my feature branches to ensure a linear, clean project history.
