@@ -80,6 +80,9 @@ const authItem = computed<NavItem>(() =>
 </template>
 
 <style>
+/* Main Structural Layout Style */
+
+  /* primary sidebar container*/
   .sideNav {
     width: 220px;
     min-width: 220px;
@@ -89,22 +92,23 @@ const authItem = computed<NavItem>(() =>
     flex-direction: column;
     /* smooth collapse animation */
     transition: width 0.25s ease, min-width 0.25s ease;
-    /* overflow hidden clips the labels as they slide out during collapse */
-    overflow: hidden;
+    /* dual overflow to stop horizontal layout tearing */
+    overflow-y: hidden;
+    overflow-x: hidden;
     border-right: 1px solid rgba(255, 255, 255, 0.1);
   }
+  /* collapsed state width*/
   .sideNav.collapsed {
     width: 60px;
     min-width: 60px;
   }
-  .logo-area {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 20px 16px;
-    cursor: pointer;
-    user-select: none;
+  .divider {
+    height: 0.5px;
+    background: #1e3048;
+    margin: 4px 16px;
   }
+
+/* Logo Styles */
   .logo-icon {
     width: 32px;
     height: 32px;
@@ -125,6 +129,18 @@ const authItem = computed<NavItem>(() =>
   .sideNav.collapsed .logo-icon i {
     transform: rotate(180deg);
   }
+  /*logo texts */
+  .logo-area {
+    display: flex;
+    align-items: center;
+    padding: 20px 16px;
+    cursor: pointer;
+    user-select: none;
+    gap: 0;
+  }
+  .logo-text{
+    margin-left: 10px;
+  }
   .logo-name {
     font-size: 15px;
     font-weight: 500;
@@ -138,28 +154,27 @@ const authItem = computed<NavItem>(() =>
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  .divider {
-    height: 0.5px;
-    background: #1e3048;
-    margin: 4px 16px;
-  }
+
+/* Navigation Items & Interactions */
   .nav-items {
-    /* flex 1 fills remaining space between the logo and settings */
-    flex: 1;
+    flex: 1; /* flex 1 fills remaining space between the logo and settings */
     display: flex;
     flex-direction: column;
     padding: 4px 0;
     overflow-y: auto;
+    overflow-x: hidden;
   }
   .nav-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
     color: #7a9ab5;
     text-decoration: none;
     cursor: pointer;
-    transition: background 0.12s;
+    transition: background 0.12s, color 0.12s, border-left 0.12s;
+    padding: 10px 16px 10px 13px; /* padding calculation to balance left border offset */
+    border-left: 3px solid transparent; /* transparent border prevents jiggle on hover*/
+
+    gap:0;
   }
   .nav-item:hover {
     background: #162840;
@@ -172,17 +187,31 @@ const authItem = computed<NavItem>(() =>
     color: #F5C842;
     border-left: 3px solid #F5C842;
   }
-  .nav-icon i{
-    background-color: transparent;
-  }
   .nav-icon{
     font-size: 16px;
     min-width: 28px;
+    max-width: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     background-color: transparent;
+  }
+  .collapse-btn {
+    color: #3D5a73;
+  }
+  .collapse-btn:hover{
+    color: #c8dcea;
+  }
+
+/* Aniamtions, collapsed overrieds and utilities*/
+  /* fade transition for all text in sidebar */
+  .nav-label, .badge, .logo-text {
+    opacity: 1;
+    white-space: nowrap;
+    background-color: transparent;
+    /* Matched to sidenav width transition speed (0.25s) */
+    transition: opacity 0.2s ease, width 0.25s ease, margin-left 0.25s ease;
   }
   .badge {
     background: #F5C842;
@@ -191,25 +220,22 @@ const authItem = computed<NavItem>(() =>
     font-weight: 500;
     padding: 1px 6px;
     border-radius: 10px;
-    /* margin-left auto pushes the badge to the far right */
+    /* pushes the badge to the far right */
     margin-left: auto;
-  }
-  .collapse-btn {
-    color: #3D5a73;
-  }
-  .collapse-btn:hover{
-    color: #c8dcea;
-  }
-  /* fade transition for all text in sidebar */
-  .nav-label, .badge, .logo-text {
-    opacity: 1;
-    white-space: nowrap;
-    transition: opacity 0.4s ease 0.25s;
   }
   .hidden {
     opacity: 0;
     width: 0;
     transition: opacity 0.1s ease;
     overflow:hidden;
+  }
+  .sideNav.collapsed .nav-item{
+    padding-left: 0;
+    padding-right: 0;
+    gap: 0;
+    justify-content: center;
+  }
+  .sideNav.collapsed .nav-icon{
+    min-width: 100%;
   }
 </style>
