@@ -61,7 +61,6 @@
     height: 40px;
     width: 40px;
   }
-
   .swiper-pagination-bullet{
     background-color: #3d5a73;
     opacity: 1;
@@ -69,5 +68,4 @@
   .swiper-pagination-bullet-active{
     background-color: #f5c842;
   }
-
 </style>
