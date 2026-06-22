@@ -9,7 +9,7 @@ I am committed to maintaining a professional development lifecycle to ensure hig
 * **Repository Hygiene**: I treat branches as disposable "scratchpads"—merging completed features into the main development line and pruning remote branches immediately to keep the repository organized.
 
 ## Project Setup
-- `yarn install`: Install dependencies.
+- `yarn install`: Install dependencies(including Swiper.js for the carousel).
 - `yarn dev`: Compile and Hot-Reload for development.
 - `yarn build`: Type-Check, compile, and minify for production.
 - `yarn lint`: Lint the project with ESLint.
