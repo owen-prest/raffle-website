@@ -25,7 +25,7 @@ const handleEdit = () => {
 // saves changes to the profile
 const handleSave =() => {
   isEditing.value = false
-  console.group('saved!')
+  console.log('saved!')
 }
 </script>
 
