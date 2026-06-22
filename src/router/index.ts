@@ -4,18 +4,19 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   { path: '/',
     name: 'Dashboard',
-    component: import('../Views/Dashboard.vue') },
+    component: import('../Views/HomePage.vue') },
   { path: '/Raffles',
     name: 'Raffles',
-    component: import('../Views/Raffles.vue') },
+    component: import('../Views/RafflesPage.vue') },
   { path: '/Login',
     name: 'Login',
-    component: import('../Views/Login.vue') },
-    {
-      path: '/Profile',
-      name: 'Profile',
-      component: import('../Views/Profile.vue')
-    }
+    component: import('../Views/LoginPage.vue') },
+  { path: '/Profile',
+    name: 'Profile',
+    component: import('../Views/ProfilePage.vue')},
+  { path: '/Winners',
+    name: 'Winners',
+    component: import('../Views/WinnersPage.vue')},
 ]
 
 export default createRouter({

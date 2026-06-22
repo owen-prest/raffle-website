@@ -1,13 +1,12 @@
 <script setup lang="ts">
-  import Gallery from '@/components/Gallery.vue'
-  import Banner from '@/components/Banner.vue'
-  import { RouterLink } from 'vue-router';
+  import ImageGallery from '@/components/ImageGallery.vue'
+  import HomeBanner from '@/components/HomeBanner.vue'
 </script>
 
 <template>
   <div class="home">
-    <Banner/>
-     <Gallery/>
+    <HomeBanner/>
+     <ImageGallery/>
   </div>
 </template>
 
