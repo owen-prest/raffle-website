@@ -13,9 +13,9 @@
 
       <div class="links">
         <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/Raffles">Raffles</RouterLink>
-        <RouterLink to="/Winners">Winners</RouterLink>
-        <RouterLink to="/Raffles">Login</RouterLink>
+        <RouterLink to="/raffles">Raffles</RouterLink>
+        <RouterLink to="/winners">Winners</RouterLink>
+        <RouterLink to="/login">Login</RouterLink>
       </div>
 
       <div class="bottom">

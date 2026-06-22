@@ -3,19 +3,19 @@ import { createRouter, createWebHistory } from 'vue-router'
 /* Web Pages */
 const routes = [
   { path: '/',
-    name: 'Dashboard',
+    name: 'dashboard',
     component: import('../Views/HomePage.vue') },
-  { path: '/Raffles',
-    name: 'Raffles',
+  { path: '/raffles',
+    name: 'raffles',
     component: import('../Views/RafflesPage.vue') },
-  { path: '/Login',
-    name: 'Login',
+  { path: '/login',
+    name: 'login',
     component: import('../Views/LoginPage.vue') },
-  { path: '/Profile',
-    name: 'Profile',
+  { path: '/profile',
+    name: 'profile',
     component: import('../Views/ProfilePage.vue')},
-  { path: '/Winners',
-    name: 'Winners',
+  { path: '/winners',
+    name: 'winners',
     component: import('../Views/WinnersPage.vue')},
 ]
 

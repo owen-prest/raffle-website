@@ -7,8 +7,8 @@
   <div class="banner">
     <div class="banner-overlay">
       <div class="banner-text">You could be a winner today!</div>
-      <div class="banner-text" to="/Login">
-        <RouterLink class="link-hover shake" to="/Login">Sign up today!</RouterLink>
+      <div class="banner-text" to="/login">
+        <RouterLink class="link-hover shake" to="/login">Sign up today!</RouterLink>
       </div>
     </div>
     <img class="banner-image" :src="bannerimage" alt="raffle image">
