@@ -1,20 +1,18 @@
 <script setup lang="ts">
   import { Swiper, SwiperSlide } from 'swiper/vue'
   import { Navigation, Pagination, Autoplay } from 'swiper/modules'
-  import placeholder from '@/assets/images/placeholder.webp'
 
   import 'swiper/css'
   import 'swiper/css/navigation'
   import 'swiper/css/pagination'
 
-  const images = [
-    placeholder,
-    placeholder,
-    placeholder,
-    placeholder,
-    placeholder,
-  ]
-  const modules = [Navigation,Pagination,Autoplay]
+  // Imports all images named gallery from the folder, allows any image type
+  const modulesImport = import.meta.glob('@/assets/images/gallery*{png,jpg,jpeg,webp}',{
+    eager:true,
+    as: 'url'
+  })
+  const images = Object.values(modulesImport) as string[]
+  const swiperModules = [Navigation,Pagination,Autoplay]
 </script>
 
 <template>
@@ -22,7 +20,7 @@
     <h1 class="home-title">Gallery</h1>
 
       <Swiper
-        :modules="modules"
+        :modules="swiperModules"
         :slides-per-view="1.2"
         :centered-slides="true"
         :space-between="20"
@@ -52,6 +50,10 @@
     height: 100%;
     object-fit: cover;
     border-radius: 12px;
+    background-color: #16263A;
+  }
+  .swiper-slide{
+    background-color: transparent;
   }
   .swiper-button-next,
   .swiper-button-prev{
