@@ -4,13 +4,13 @@
 </script>
 
 <template>
-  <div style="display:flex; height:100vh; overflow: visible;">
+  <div class ="layout">
     <SideNav />
-    <main style="flex:1; overflow-y:auto;">
+    <main class="main">
       <router-view />
+      <AppFooter/>
     </main>
   </div>
-<AppFooter/>
 </template>
 
 <style>
@@ -23,5 +23,11 @@
   }
   body{
     overflow:hidden;
+  }
+  .layout{
+    display:flex; height:100vh; overflow: visible;
+  }
+  .main{
+    flex:1; overflow-y:auto;
   }
 </style>
