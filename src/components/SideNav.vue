@@ -2,29 +2,28 @@
   import { ref, computed } from 'vue'
   import { RouterLink } from 'vue-router'
   import { isLoggedIn } from '@/stores/auth'
+  import { navLinks } from '@/constants/navigation';
 
   interface NavItem{
-    label: string
-    icon: string
-    path: string
+    label: string;
+    icon: string;
+    path: string;
     // ? means badge is optional - not every nav item needs one
-    badge?:number
+    badge?:number;
   }
 
-  // ref() makes collapsed reactive so the template updates automatically
+  // reactive state for sidebar collapse
   const collapsed=ref(false)
 
-const navItems: NavItem[] = [
-  { label: 'Dashboard', icon: 'fa-solid fa-house', path: '/' },
-  { label: 'Raffles', icon: 'fas fa-ticket-alt', path: '/raffles' },
-]
+  // cast the JS import to our interface to enable TypeScript type-checking
+  const navItems = (navLinks as unknown) as NavItem[];
 
-// switches between Login and Profile based on auth state
-const authItem = computed<NavItem>(() =>
-  isLoggedIn.value
-    ? { label: 'Profile', icon: 'fa-solid fa-user', path: '/profile' }
-    : { label: 'Login', icon: 'fa-solid fa-right-to-bracket', path: '/login' }
-)
+  // dynamically return the appropriate auth route based on login state
+  const authItem = computed<NavItem>(() =>
+    isLoggedIn.value
+      ? { label: 'Profile', icon: 'fa-solid fa-user', path: '/profile' }
+      : { label: 'Login', icon: 'fa-solid fa-right-to-bracket', path: '/login' }
+  )
 </script>
 
 <template>
