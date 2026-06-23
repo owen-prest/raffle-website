@@ -1,5 +1,24 @@
 <script setup lang="ts">
+  import { computed } from 'vue';
+  import { isLoggedIn } from '@/stores/auth';
+  import { navLinks } from '@/constants/navigation';
+
   const year = new Date().getFullYear()
+
+  interface NavItem{
+    label: string;
+    path: string;
+  }
+
+  // cast the JS import to our interface to enable TypeScript type-checking
+  const navItems = (navLinks as unknown) as NavItem[];
+
+  // dynamically return the appropriate auth route based on login state
+  const authItem = computed<NavItem>(() =>
+    isLoggedIn.value
+      ? { label: 'Profile', path: '/profile' }
+      : { label: 'Login', path: '/login' }
+  )
 </script>
 
 <template>
@@ -12,10 +31,12 @@
       </div>
 
       <div class="links">
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/raffles">Raffles</RouterLink>
-        <RouterLink to="/winners">Winners</RouterLink>
-        <RouterLink to="/login">Login</RouterLink>
+          <RouterLink v-for="link in navItems" :key="link.path" :to="link.path">
+            {{ link.label }}
+          </RouterLink>
+          <RouterLink :to="authItem.path">
+            {{ authItem.label }}
+          </RouterLink>
       </div>
 
       <div class="bottom">
@@ -23,8 +44,6 @@
       </div>
 
     </div>
-
-
   </footer>
 </template>
 
