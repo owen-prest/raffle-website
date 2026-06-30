@@ -1,6 +1,37 @@
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
-  import { mockRaffles } from '@/data/mockRaffles';
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { mockRaffles } from '@/data/mockRaffles'
+  import type { Raffle } from '@/data/mockRaffles'
+  import { myTickets } from '@/data/myTickets'
+  import { isLoggedIn } from '@/stores/auth'
+
+  const router = useRouter()
+
+  // tracks which raffle is open in  the overlay
+  const selectedRaffle = ref<Raffle | null>(null)
+
+    const openOverlay = (raffle: Raffle) => {
+      selectedRaffle.value = raffle
+    }
+
+    const closeOverlay = () => {
+    selectedRaffle.value = null
+  }
+  // returns the ticket numbers the user owns for a given raffle, or empty array
+  const getMyTickets = (raffleId: number) => {
+    return myTickets[raffleId] || []
+  }
+
+  // handles the enter raffle button, redirects if not logged in
+  const handleEnter = (raffle: Raffle) => {
+    if (!isLoggedIn.value){
+      router.push('/login')
+      return
+    }
+    // this will call the backend to purchase a ticket
+    console.log('entering raffle', raffle.id)
+  }
 
   // raffle date calculation
   const daysLeft = (endDate:string) => {
@@ -34,7 +65,7 @@
 
     <Transition name="fade" mode="out-in">
       <div class="raffle-grid" :key="currentPage">
-        <div class="raffle-card" v-for="raffle in paginatedRaffles" :key="raffle.id">
+        <div class="raffle-card" v-for="raffle in paginatedRaffles" :key="raffle.id" @click="openOverlay(raffle)">
           <img class="raffle-image" :src="raffle.image" :alt="raffle.title"/>
 
           <div class="raffle-body">
@@ -56,7 +87,9 @@
             <span class="raffle-days">{{ daysLeft(raffle.endDate)}} days left</span>
           </div>
 
-          <button class="raffle-btn">Enter Raffle</button>
+          <button class="raffle-btn" @click.stop="handleEnter(raffle)">
+            {{ isLoggedIn ? 'Enter Raffle' : 'Login to Enter'}}
+          </button>
 
         </div>
       </div>
@@ -73,6 +106,84 @@
     </button>
     </div>
 
+    <Transition name="fade">
+      <div class="overlay-backdrop" v-if="selectedRaffle" @click.self="closeOverlay">
+        <div class="overlay-card">
+
+          <!-- close button -->
+          <button class="overlay-close" @click="closeOverlay">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          <!-- image -->
+          <img class="overlay-image" :src="selectedRaffle.image" alt="selectedRaffle.title"/>
+          <!-- details -->
+          <div class="overlay-body">
+            <h2 class="overlay-title">{{ selectedRaffle.title}}</h2>
+            <p class="overlay-prize">🏆 Prize: {{ selectedRaffle.prize}}</p>
+
+            <div class="overlay-info-grid">
+              <div class="overlay-info-item">
+                <span class="overlay-info-label">Ticket Price</span>
+                <span class="overlay-info-value">£{{ selectedRaffle.ticketPrice }}</span>
+              </div>
+              <div class="overlay-info-item">
+                <span class="overlay-info-label">Total Entrants</span>
+                <span class="overlay-info-value">{{ selectedRaffle.entrants }}</span>
+              </div>
+               <div class="overlay-info-item">
+                <span class="overlay-info-label">Draw Date</span>
+                <span class="overlay-info-value">{{ selectedRaffle.drawDate }}</span>
+              </div>
+                <div class="overlay-info-item">
+                <span class="overlay-info-label">Days Left</span>
+                <span class="overlay-info-value">{{ daysLeft(selectedRaffle.endDate) }}</span>
+              </div>
+            </div>
+
+            <div class="overlay-draw-method">
+              <span class="overlay-info-label">How it will be drawn</span>
+              <p class="overlay-draw-text">{{ selectedRaffle.drawMethod }}</p>
+            </div>
+
+            <!-- your tickets if logged in and entered -->
+            <div class="overlay-my-tickets" v-if="isLoggedIn && getMyTickets(selectedRaffle.id).length > 0">
+              <span class="overlay-info-label">Your Tickets</span>
+              <div class="my-ticket-numbers">
+                <span
+                  class="my-ticket-number"
+                  v-for="num in getMyTickets(selectedRaffle.id)"
+                  :key="num"
+                >
+                  #{{ num }}
+                </span>
+              </div>
+            </div>
+
+            <!-- ticket grid -->
+            <div class="overlay-tickets">
+              <span class="overlay-info-label">Tickets — {{ selectedRaffle.ticketsSold }} sold / {{ selectedRaffle.ticketsTotal - selectedRaffle.ticketsSold }} remaining</span>
+              <div class="ticket-grid">
+                <div
+                  v-for="n in selectedRaffle.ticketsTotal"
+                  :key="n"
+                  :class="[
+                    'ticket-square',
+                    n <= selectedRaffle.ticketsSold ? 'ticket-sold' : 'ticket-available',
+                    getMyTickets(selectedRaffle.id).includes(n) ? 'ticket-mine' : ''
+                  ]"
+                  :title="n <= selectedRaffle.ticketsSold ? `Ticket #${n} - Sold` : `Ticket #${n} - Available`"
+                ></div>
+              </div>
+            </div>
+
+            <button class="raffle-btn overlay-enter-btn" @click="handleEnter(selectedRaffle)">
+              {{ isLoggedIn ? 'Enter Raffle' : 'Login to Enter' }}
+            </button>
+
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -95,6 +206,10 @@
     .raffle-grid {
       grid-template-columns: 1fr;
     }
+  }
+  .home-title{
+    color: #E6EDF3;
+    padding: 20px 60px;
   }
   .raffle-card{
     background-color: #16263A;
@@ -199,5 +314,151 @@
     background-color: #F5C842;
     color: #0B1220;
     border-color: #F5C842;
+  }
+  /* Overlay Styles*/
+  .overlay-backdrop{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .overlay-card{
+    background-color: #16263A;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .overlay-close{
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: #E6EDF3;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .overlay-close:hover{
+    background-color: #ff6b6b;
+  }
+  .overlay-image{
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 12px 12px 0 0;
+  }
+  .overlay-body{
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .overlay-title{
+    color: #E6EDF3;
+    font-size: 22px;
+  }
+  .overlay-prize{
+    color: #F5C842;
+    font-size: 15px;
+  }
+  .overlay-info-grid{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .overlay-info-item{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background-color: #0B1220;
+    padding: 12px;
+    border-radius: 8px;
+  }
+  .overlay-info-label{
+    color: #6a849e;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .overlay-info-value{
+    color: #E6EDF3;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .overlay-draw-method{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .overlay-draw-text{
+    color: #E6EDF3;
+    font-size: 14px;
+  }
+  .overlay-my-tickets {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .my-ticket-numbers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .my-ticket-number {
+    background-color: #F5C842;
+    color: #0B1220;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .overlay-tickets {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ticket-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16px, 1fr));
+    gap: 3px;
+  }
+  .ticket-square {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .ticket-available {
+    background-color: #1e3a5f;
+  }
+  .ticket-sold {
+    background-color: #3d5a73;
+    opacity: 0.5;
+  }
+  .ticket-mine {
+    background-color: #F5C842 !important;
+  }
+  .overlay-enter-btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
   }
 </style>

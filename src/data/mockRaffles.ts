@@ -9,6 +9,9 @@ export interface Raffle{
   ticketsSold: number
   ticketsTotal: number
   endDate: string
+  entrants: number
+  drawMethod: string
+  drawDate: string
 }
 
 export const mockRaffles: Raffle[] = [
@@ -21,6 +24,9 @@ export const mockRaffles: Raffle[] = [
     ticketsSold: 320,
     ticketsTotal: 500,
     endDate: '2026-07-15',
+     entrants: 184,
+    drawMethod: 'Random number generator, livestreamed on our socials',
+    drawDate: '2026-07-16',
   },
   {
     id: 2,
@@ -31,6 +37,9 @@ export const mockRaffles: Raffle[] = [
     ticketsSold: 850,
     ticketsTotal: 1000,
     endDate: '2026-07-10',
+    entrants: 412,
+    drawMethod: 'Random number generator, livestreamed on our socials',
+    drawDate: '2026-07-11',
   },
   {
     id: 3,
@@ -41,6 +50,9 @@ export const mockRaffles: Raffle[] = [
     ticketsSold: 90,
     ticketsTotal: 300,
     endDate: '2026-08-01',
+    entrants: 412,
+    drawMethod: 'Random number generator, livestreamed on our socials',
+    drawDate: '2026-07-11',
   },
    {
     id: 1,
@@ -51,6 +63,9 @@ export const mockRaffles: Raffle[] = [
     ticketsSold: 320,
     ticketsTotal: 500,
     endDate: '2026-07-15',
+    entrants: 412,
+    drawMethod: 'Random number generator, livestreamed on our socials',
+    drawDate: '2026-07-11',
   },
   {
     id: 2,
@@ -61,6 +76,9 @@ export const mockRaffles: Raffle[] = [
     ticketsSold: 850,
     ticketsTotal: 1000,
     endDate: '2026-07-10',
+    entrants: 67,
+    drawMethod: 'Random number generator, livestreamed on our socials',
+    drawDate: '2026-08-02',
   },
   {
     id: 3,
@@ -71,6 +89,9 @@ export const mockRaffles: Raffle[] = [
     ticketsSold: 90,
     ticketsTotal: 300,
     endDate: '2026-08-01',
+    entrants: 67,
+    drawMethod: 'Random number generator, livestreamed on our socials',
+    drawDate: '2026-08-02',
   },
    {
     id: 1,
@@ -81,6 +102,9 @@ export const mockRaffles: Raffle[] = [
     ticketsSold: 320,
     ticketsTotal: 500,
     endDate: '2026-07-15',
+    entrants: 67,
+    drawMethod: 'Random number generator, livestreamed on our socials',
+    drawDate: '2026-08-02',
   },
   {
     id: 2,
@@ -91,6 +115,9 @@ export const mockRaffles: Raffle[] = [
     ticketsSold: 850,
     ticketsTotal: 1000,
     endDate: '2026-07-10',
+     entrants: 67,
+    drawMethod: 'Random number generator, livestreamed on our socials',
+    drawDate: '2026-08-02',
   },
   {
     id: 3,
@@ -101,5 +128,8 @@ export const mockRaffles: Raffle[] = [
     ticketsSold: 90,
     ticketsTotal: 300,
     endDate: '2026-08-01',
+     entrants: 67,
+    drawMethod: 'Random number generator, livestreamed on our socials',
+    drawDate: '2026-08-02',
   },
 ]

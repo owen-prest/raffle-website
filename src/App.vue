@@ -21,13 +21,14 @@
     box-sizing:border-box;
   }
   body{
-    overflow:hidden;
     background-color: #0B1220;
   }
   .layout{
     display:flex; height:100vh; overflow: visible;
   }
   .main{
-    flex:1; overflow-y:auto;
+    flex:1;
+    overflow-y:auto;
+    position: relative;
   }
 </style>
