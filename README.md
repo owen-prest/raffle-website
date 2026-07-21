@@ -1,48 +1,56 @@
 # raffle-project
-
 This is a website that allows users to enter raffles and view a live draw.
 
-## Recommended IDE Setup
+## Engineering & Workflow
+I’m focused on keeping the codebase healthy and maintainable as the project grows. Here is how I handle the day-to-day development:
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+* **Feature-Branch Workflow**: I work on new features in their own isolated branches. This keeps the main code stable and lets me experiment without breaking anything.
+* **Keeping History Clean**: Instead of messy merges, I prefer to `rebase` my branches. It keeps the project history looking like a straight, easy-to-read line.
+* **Repository Hygiene**: I treat branches as temporary workspaces. Once a feature is done and merged into the main line, I clean up the old branch immediately to keep things tidy.
 
-## Recommended Browser Setup
+## 🛠️ Architecture & Development Lessons
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+### 1. TypeScript & JavaScript Interoperability (Module Declarations)
+**Challenge:** When managing global configuration data (like application navigation) in a standard JavaScript file (`.js`), strict TypeScript environments throw implicit `any` type errors upon import. Shifting types with hacky bridges like `as unknown as Type[]` inside Vue components leads to messy, unmaintainable code.
 
-## Type Support for `.vue` Imports in TS
+**Solution:** Implemented a formal TypeScript declaration contract (`.d.ts`) using a `declare module` block. This maps the JavaScript data source directly to strongly-typed interfaces:
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+```typescript
+// src/constants/navigation.d.ts
+declare module '@/constants/navigation' {
+  export interface NavItem {
+    label: string;
+    icon: string;
+    path: string;
+    badge?: number;
+  }
+  export const navLinks: NavItem[];
+}
+```
+### 2. Backend & Database Architecture (Supabase)
+**Challenge:** A raffle system requires rigorous data integrity, user authentication, and real-time state tracking (like live ticket counters) without the overhead of building and securing a custom server from scratch.
 
-## Customize configuration
+**Solution:** Integrated Supabase (PostgreSQL + BaaS) to handle the backend infrastructure:
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+Data Integrity & ACID Compliance: Relational tables ensure race conditions during ticket purchases are prevented and transactions remain completely secure.
+
+Security via Row Level Security (RLS): Native database-level security policies ensure users can only read or mutate authorized data, such as their own ticket history.
+
+Type Safety Synergy: Utilizing Supabase's CLI to generate native TypeScript types directly from the database schema, bridging backend structures seamlessly with the Vue frontend.
+
+Realtime Capabilities: Built-in WebSocket subscriptions enable live updates for ticket tracking and winner announcements without manual page refreshes.
 
 ## Project Setup
+*   `yarn install`: Install dependencies (including Swiper.js for the carousel).
+*   `yarn dev`: Compile and Hot-Reload for development.
+*   `yarn build`: Type-Check, compile, and minify for production.
+*   `yarn lint`: Lint the project with ESLint.
 
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+## Lessons Learned
+*   **Documentation Matters**: I realized that keeping the README up to date is just as important as writing the code—it’s how I (and anyone else) can actually understand what's going on later.
+*   **Why Yarn?**: I switched from npm to Yarn because I liked how it locks dependencies. It makes the project feel much more stable across different environments.
+*   **Choosing the Right Tools**: I tried hardcoding a carousel at first, but it got complicated fast. Switching to `Swiper.js` made the layout much cleaner and way easier to maintain.
+*   **Git Workflow Gotchas**: I had to learn the hard way about mixing `merge` and `rebase`!
+    *   **The Fix**: I now stick to `rebase` to keep my branch history linear.
+    *   **Safe Pushes**: I learned that if you rebase, you have to use `--force-with-lease`. It’s a safer way to push that ensures you don't accidentally overwrite someone else's work.
+    *   **No More "Merge Bubbles"**: If I accidentally merge `develop` into my feature branch, I now know how to use `rebase` to clean up the graph instead of leaving those confusing "bubbles" in the commit history.
