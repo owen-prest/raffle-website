@@ -146,9 +146,10 @@ const handleSignUp = async () => {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding-bottom:20px;
   }
   .form-group label {
-    color: #8fa0b5;
+    color: #f5c842;
     font-size: 13px;
     font-weight: 500;
   }
@@ -176,10 +177,10 @@ const handleSignUp = async () => {
     border-radius: 8px;
     padding: 12px;
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
-    margin-top: 8px;
-    transition: background-color 0.2s ease;
+    transition: background 0.2s ease;
+    width: 100%;
   }
   .signup-btn:hover:not(:disabled) {
     background-color: #e6b800;
@@ -210,7 +211,7 @@ const handleSignUp = async () => {
     color: #8fa0b5;
     font-size: 14px;
     text-align: center;
-    margin-top: 8px;
+    margin-top: 25px;
   }
   .login-link a {
     color: #F5C842;
