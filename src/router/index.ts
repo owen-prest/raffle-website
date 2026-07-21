@@ -1,5 +1,6 @@
+// src/router/index.ts
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
+import { supabase } from '@/supabase'
 
 /* Web Pages */
 const routes = [
@@ -14,22 +15,22 @@ const routes = [
   { path: '/login',
     name: 'login',
     component: () =>import('../Views/LoginPage.vue'),
-    meta: { requiresAuth: false, redirectIfAuth: true }
+    meta: { redirectIfAuth: true }
   },
     { path: '/signup',
     name: 'signup',
     component: () =>import('../Views/SignUpPage.vue'),
-    meta: { requiresAuth: false, redirectIfAuth: true }
+    meta: { redirectIfAuth: true }
   },
   { path: '/profile',
     name: 'profile',
     component: () => import('../Views/ProfilePage.vue'),
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: true }
   },
   {
     path: '/settings',
     name: 'settings',
-    component: () => import('../Views/SettingsPage.vue'), // Added missing settings route
+    component: () => import('../Views/SettingsPage.vue'),
     meta: { requiresAuth: true }
   },
   { path: '/winners',
@@ -43,15 +44,17 @@ const router = createRouter({
   routes,
 })
 
-// navigation guard
-router.beforeEach((to, from, next) => {
-  const { user } = useAuth()
-  const isAuthenticated = !!user.value
-
-  if(to.meta.requiresAuth && !isAuthenticated) {
+// Navigation guard
+router.beforeEach(async(to, from, next) => {
+  // 1. Await Supabase session check directly (reads from localStorage synchronously/fast on refresh)
+  const { data: { session } } = await supabase.auth.getSession()
+  const isAuthenticated = !!session
+  // 2. Protected routes check
+  if (to.meta.requiresAuth && !isAuthenticated) {
     return next({ name: 'login' })
   }
-  if(to.meta.requiresAuth && isAuthenticated) {
+  // 3. Guest-only routes check (login/signup)
+  if (to.meta.redirectIfAuth && isAuthenticated) {
     return next({ name: 'dashboard' })
   }
   next()
