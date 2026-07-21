@@ -70,6 +70,11 @@
             {{ isLoading ? 'Logging in...' : 'Log in' }}
           </button>
 
+          <!-- New Signup Link-->
+          <p class="auth-switch">
+            Don't have an account? <router-link class="auth-link button" to="/signup">Sign up</router-link>
+          </p>
+
         </form>
     </div>
   </div>
@@ -138,5 +143,23 @@ border: 1px solid #F5C842;
   text-align: center;
   padding: 16px;
   border-radius: 12px;
+}
+.auth-switch {
+  margin-top: 1.25rem;
+  font-size: 0.9rem;
+  color: #666; /* Adjust to match your theme's muted text color */
+  text-align: center;
+}
+
+.auth-link {
+  color: #F5C842; /* Vue green or your primary brand color */
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 0.25rem;
+}
+
+.auth-link:hover {
+  color: #e6b800;
+  transition: 0.2s ease;
 }
 </style>
