@@ -61,7 +61,7 @@
 
 <template>
   <div class="raffles">
-    <h1 class="home-title">Welcome to the Raffle Page</h1>
+    <h1 class="home-title">Active Raffles</h1>
 
     <Transition name="fade" mode="out-in">
       <div class="raffle-grid" :key="currentPage">
@@ -83,7 +83,7 @@
           </div>
 
           <div class="raffle-footer">
-            <span class="raffle-price">{{ raffle.ticketPrice}} / per ticket</span>
+            <span class="raffle-price">£{{ raffle.ticketPrice}} / per ticket</span>
             <span class="raffle-days">{{ daysLeft(raffle.endDate)}} days left</span>
           </div>
 
@@ -108,7 +108,7 @@
 
     <Transition name="fade">
       <div class="overlay-backdrop" v-if="selectedRaffle" @click.self="closeOverlay">
-        <div class="overlay-card">
+        <div class="overlay-card no-scrollbar">
 
           <!-- close button -->
           <button class="overlay-close" @click="closeOverlay">

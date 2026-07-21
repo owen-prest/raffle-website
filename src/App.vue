@@ -6,7 +6,7 @@
 <template>
   <div class ="layout">
     <SideNav />
-    <main class="main">
+    <main class="main no-scrollbar">
       <router-view />
       <AppFooter/>
     </main>
