@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue'
   import { RouterLink } from 'vue-router'
-  import { isLoggedIn } from '@/stores/auth'
+  import {useAuth} from '@/composables/useAuth'
   import { navLinks } from '@/constants/navigation';
 
   interface NavItem{
@@ -14,6 +14,10 @@
 
   // reactive state for sidebar collapse
   const collapsed=ref(false)
+
+  // access supabase user states
+  const { user } = useAuth()
+  const isLoggedIn = computed(() => !!user.value)
 
   // cast the JS import to our interface to enable TypeScript type-checking
   const navItems = (navLinks as unknown) as NavItem[];
