@@ -3,18 +3,16 @@
   import { useRouter} from 'vue-router'
   import { useAuth } from '../composables/useAuth'
 
-  const router = useRouter()
-  const { signIn } = useAuth()
-
   const email = ref('')
   const password = ref ('')
   const errorMessage = ref('')
   const isLoading = ref(false)
 
+  const router = useRouter()
+  const { signIn } = useAuth()
+
+  // basic validation for empty fields and valid email format
   const handleLogin = async() =>{
-    // resets error message
-    errorMessage.value = ''
-    // basic validation for empty fields and valid email format
     if (!email.value  || !password.value){
       errorMessage.value="Please fill in all fields"
       return
@@ -24,14 +22,16 @@
       return
     }
 
-    isLoading.value = true
-
     try{
-      // authentication with Supabase
+      isLoading.value = true
+      // resets error message
+      errorMessage.value = ''
+
+      // signIn throws an error if authentication fails
       await signIn(email.value, password.value)
 
-      //redirect to home on successful authentication
-      router.push('/')
+      //redirect to home on successful log in
+      router.push('/profile')
       } catch (err) {
           // Type-safe error handling without 'any'
           if (err instanceof Error) {
