@@ -13,7 +13,12 @@ const email = ref(user.value?.email || '')
 const username = ref(user.value?.user_metadata?.username || 'Username')
 const bio = ref(user.value?.user_metadata?.bio || 'Tell us about yourself...')
 
-// automatically updates fields if user session finishes loading asynchronously
+//status and feedback states
+const isEditing = ref(false)
+const isSaving = ref(false)
+const errorMessage = ref('')
+
+// automatically updates fields when session finishes loading (only when not editing)
 watchEffect(() => {
   if (user.value) {
     email.value = user.value.email || ''
@@ -22,27 +27,45 @@ watchEffect(() => {
   }
 })
 
-//tracks if the user is in edit mode
-const isEditing = ref(false)
 const handleEdit = () => {
+  errorMessage.value = ''
   isEditing.value = true
 }
 
-// saves changes to the profile
+const handleCancel = () => {
+  username.value = user.value?.user_metadata?.username || ''
+  bio.value = user.value?.user_metadata?.bio || ''
+  errorMessage.value = ''
+  isEditing.value = false
+}
+
+// saves changes to supabase user_metadata
 const handleSave = async () => {
   try{
+    isSaving.value = true
+    errorMessage.value = ''
+
     const { error } = await supabase.auth.updateUser({
       data: {
         username: username.value,
         bio: bio.value,
       },
     })
+
     if (error) throw error
 
     isEditing.value = false
-  } catch (err) {
-    console.error('Error updating user:', err)
-  }
+    } catch (err: unknown) {
+      console.error('Error updating user:', err)
+      if (err instanceof Error) {
+        errorMessage.value = err.message
+      } else {
+        errorMessage.value = 'Failed to save profile changes.'
+      }
+    } finally {
+      isSaving.value = false
+
+    }
 }
 
 // handles logout asynchronously and redirects to login page
