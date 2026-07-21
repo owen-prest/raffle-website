@@ -1,56 +1,81 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { useRouter} from 'vue-router'
-  import { isLoggedIn, login } from '@/stores/auth'
-
-  const router = useRouter()
+  import { useAuth } from '../composables/useAuth'
 
   const email = ref('')
   const password = ref ('')
   const errorMessage = ref('')
+  const isLoading = ref(false)
 
-  const fakeUser = {
-    email:'test@example.com',
-    password:'password123'
-  }
+  const router = useRouter()
+  const { signIn } = useAuth()
 
-  const handleLogin = () =>{
-    // resets error message
-    errorMessage.value = ''
-
-    // check if fields are empty
+  // basic validation for empty fields and valid email format
+  const handleLogin = async() =>{
     if (!email.value  || !password.value){
       errorMessage.value="Please fill in all fields"
       return
     }
-    // checks for valid email
     if (!email.value.includes('@')) {
       errorMessage.value = 'Please enter a valid email'
       return
     }
-    // check if credentials match fake user, sets status to logged (Auth.ts) and redirects
-    if (email.value === fakeUser.email && password.value === fakeUser.password){
-      console.log('login called')
-      login()
-      console.log('isLoggedIn', isLoggedIn.value)
-      router.push('/')
-    } else {
-      errorMessage.value = 'Invalid email or password'
-    }
-  }
 
+    try{
+      isLoading.value = true
+      // resets error message
+      errorMessage.value = ''
+
+      // signIn throws an error if authentication fails
+      await signIn(email.value, password.value)
+
+      //redirect to home on successful log in
+      router.push('/profile')
+      } catch (err) {
+          // Type-safe error handling without 'any'
+          if (err instanceof Error) {
+            errorMessage.value = err.message
+          } else {
+            errorMessage.value = 'An error occurred during login'
+          }
+        } finally {
+          isLoading.value = false
+        }
+  }
 </script>
 
 <template>
   <div class="login">
     <div class="login-menu">
       <h1 class="login-title">Welcome to the Login Page</h1>
-        <div class="login-form">
-          <input v-model="email" type="email" placeholder="Email" class="login-input">
-          <input v-model="password" type="password" placeholder="Password" class="login-input">
+
+        <form @submit.prevent="handleLogin" class="login-form">
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Email"
+            class="login-input"
+          />
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Password"
+            class="login-input"
+          />
+
           <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
-          <button class="login-btn" @click="handleLogin">Sign in</button>
-        </div>
+
+          <button class="login-btn" type="submit" :disabled="isLoading">
+            {{ isLoading ? 'Logging in...' : 'Log in' }}
+          </button>
+
+          <!-- New Signup Link-->
+          <p class="auth-switch">
+            Don't have an account? <router-link class="auth-link button" to="/signup">Sign up</router-link>
+          </p>
+
+        </form>
     </div>
   </div>
 </template>
@@ -118,5 +143,23 @@ border: 1px solid #F5C842;
   text-align: center;
   padding: 16px;
   border-radius: 12px;
+}
+.auth-switch {
+  margin-top: 1.25rem;
+  font-size: 0.9rem;
+  color: #666; /* Adjust to match your theme's muted text color */
+  text-align: center;
+}
+
+.auth-link {
+  color: #F5C842; /* Vue green or your primary brand color */
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 0.25rem;
+}
+
+.auth-link:hover {
+  color: #e6b800;
+  transition: 0.2s ease;
 }
 </style>

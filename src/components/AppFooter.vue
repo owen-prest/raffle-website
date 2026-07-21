@@ -50,7 +50,7 @@
 <style>
   /* Adds padding to all footer content */
   .footer-wrap{
-    padding: 12px 12px;
+    padding: 12px 12px 12px 40px;
     display: flex;
     flex-wrap: wrap;
     column-gap: 60px;
