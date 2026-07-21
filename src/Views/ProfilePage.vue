@@ -3,29 +3,115 @@ import { ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { supabase } from '@/supabase'
-import profileImg from '@/assets/images/profileImg.webp'
+import defaultProfileImg from '@/assets/images/profileImg.webp'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
 
-// initialise state from Supabase user data
+// Profile State
 const email = ref(user.value?.email || '')
 const username = ref(user.value?.user_metadata?.username || 'Username')
 const bio = ref(user.value?.user_metadata?.bio || 'Tell us about yourself...')
+const avatarUrl = ref(user.value?.user_metadata?.avatar_url || '')
 
-//status and feedback states
+// Status and Feedback States
 const isEditing = ref(false)
 const isSaving = ref(false)
+const isUploading = ref(false)
+const usernameError = ref('')
 const errorMessage = ref('')
 
-// automatically updates fields when session finishes loading (only when not editing)
-watchEffect(() => {
-  if (user.value) {
+// Load existing profile from Supabase 'profiles' table
+const loadProfile = async () => {
+  if (!user.value) return
+
     email.value = user.value.email || ''
-    username.value = user.value.user_metadata?.username || username.value
-    bio.value = user.value.user_metadata?.bio || bio.value
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username, bio, avatar_url')
+      .eq('id', user.value.id)
+      .maybeSingle()
+
+    if (error) throw error
+
+    if (data) {
+      username.value = data.username || user.value.user_metadata?.username || ''
+      bio.value = data.bio || user.value.user_metadata?.bio || ''
+      avatarUrl.value = data.avatar_url || user.value.user_metadata?.avatar_url || ''
+    } else{
+      // If no DB row exists yet, retain auth metadata defaults
+      username.value = user.value.user_metadata?.username || username.value || 'Username'
+      bio.value = user.value.user_metadata?.bio || bio.value || ''
+    }
+  } catch (err: unknown) {
+    console.error('Error loading profile:', err)
+  }
+}
+
+// Automatically sync when user loads (only while not editing)
+watchEffect(() => {
+  if (user.value && !isEditing.value) {
+    loadProfile()
   }
 })
+
+// Query Supabase to check if another user has this username
+const isUsernameTaken = async (nameToCheck: string): Promise<boolean> => {
+  const trimmed = nameToCheck.trim()
+  if (!trimmed) return false
+
+  const { data, error} = await supabase
+  .from('profiles')
+  .select('id')
+  .ilike('username', trimmed) // case-insensitive match
+  .neq('id', user.value?.id || '') // exclude current user's profile
+  .maybeSingle()
+
+  if (error) {
+    console.error('Error checking username:', error)
+    return false
+  }
+  return !!data
+}
+
+// Handle image selection and upload to Supabase Storage bucket
+const handleAvatarUpload = async (event:Event) => {
+  const target = event.target as HTMLInputElement
+  if (!target.files || target.files.length === 0 || !user.value) return
+
+  const file = target.files[0]
+  const fileExt = file.name.split('.').pop()
+  const filePath = `${user.value.id}/avatar.${fileExt}`
+
+  try{
+    isUploading.value = true
+    errorMessage.value = ''
+
+    // Upload to 'avatars' storage bucket (upsert overwrites previous avatar)
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true })
+
+    if (uploadError) throw uploadError
+
+    // Retrieve public URL
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+
+    // Append timestamp to bust browser image cache
+    avatarUrl.value = `${data.publicUrl}?t=${Date.now()}`
+  } catch (err: unknown) {
+    console.error('Error uploading avatar:', err)
+    if (err instanceof Error) {
+      errorMessage.value = err.message
+    } else {
+      errorMessage.value = 'Failed to upload avatar.'
+    }
+  } finally {
+    isUploading.value = false
+  }
+}
 
 const handleEdit = () => {
   errorMessage.value = ''
@@ -35,37 +121,74 @@ const handleEdit = () => {
 const handleCancel = () => {
   username.value = user.value?.user_metadata?.username || ''
   bio.value = user.value?.user_metadata?.bio || ''
+  usernameError.value = ''
   errorMessage.value = ''
   isEditing.value = false
+  loadProfile() // Reloads latest DB values, reverting username, bio, and unsaved avatar uploads
 }
 
-// saves changes to supabase user_metadata
+// Validate unique username & save changes
 const handleSave = async () => {
-  try{
+  if (!user.value) {
+    errorMessage.value = 'User session not found. Please log in again.'
+    return
+  }
+
+  const trimmedUsername = username.value.trim()
+
+  if (!trimmedUsername) {
+    usernameError.value = 'Username cannot be empty'
+    return
+  }
+
+  try {
     isSaving.value = true
+    usernameError.value = ''
     errorMessage.value = ''
 
-    const { error } = await supabase.auth.updateUser({
-      data: {
-        username: username.value,
-        bio: bio.value,
-      },
+    // 1. Check uniqueness across DB
+    const taken = await isUsernameTaken(trimmedUsername)
+    if (taken) {
+      usernameError.value = 'Username is already taken. Please choose another.'
+      return
+    }
+
+    // 2. Upsert into public 'profiles' table
+    const { error: dbError } = await supabase.from('profiles').upsert({
+      id: user.value.id,
+      username: trimmedUsername,
+      bio: bio.value,
+      avatar_url: avatarUrl.value,
+      updated_at: new Date().toISOString()
     })
 
-    if (error) throw error
+    if (dbError) throw dbError
 
-    isEditing.value = false
-    } catch (err: unknown) {
-      console.error('Error updating user:', err)
-      if (err instanceof Error) {
-        errorMessage.value = err.message
-      } else {
-        errorMessage.value = 'Failed to save profile changes.'
+    // 3. Update auth metadata
+    const { error: authError } = await supabase.auth.updateUser({
+      data: {
+        username: trimmedUsername,
+        bio: bio.value,
+        avatar_url: avatarUrl.value
       }
-    } finally {
-      isSaving.value = false
+    })
 
+    if (authError) throw authError
+
+    // Exit edit mode on success
+    isEditing.value = false
+  } catch (err: unknown) {
+    console.error('Error saving profile:', err)
+
+    // Safely check for a message on Supabase error objects or standard Error instances
+    if (err && typeof err === 'object' && 'message' in err) {
+      errorMessage.value = (err as { message: string }).message
+    } else {
+      errorMessage.value = 'Failed to save profile changes.'
     }
+  } finally {
+    isSaving.value = false
+  }
 }
 
 // handles logout asynchronously and redirects to login page
@@ -81,25 +204,42 @@ const handleLogout = async () => {
 
 <template>
   <div class="profile">
-
     <div class="profile-card">
+
       <h1 class="profile-title">Hello {{ username }}!</h1>
+
+      <!-- Error banner for general failures -->
+      <div v-if="errorMessage" class="error-banner">
+        {{ errorMessage }}
+      </div>
 
       <div class="profile-body">
         <div class ="profile-left">
-          <img class="profile-image" :src="profileImg" alt="profile image">
+          <img class="profile-image" :src="avatarUrl || defaultProfileImg" alt="profile image">
+
+          <!-- Upload Avatar button only visible during edit mode -->
+          <label v-if="isEditing" class="upload-btn">
+            {{ isUploading ? 'Uploading...' : 'Change Avatar' }}
+            <input
+              type="file"
+              accept="image/*"
+              @change="handleAvatarUpload"
+              :disabled="isUploading"
+              hidden
+            />
+          </label>
         </div>
 
         <div class="profile-info">
           <div class="profile-field">
             <label class="profile-label">Your Username</label>
-            <input  v-if="isEditing" v-model="username" class="profile-input" type="text"/>
+            <input v-if="isEditing" v-model="username" @input="usernameError = ''" class="profile-input" :class="{ 'input-error': usernameError }" type="text"/>
             <span v-else class="profile-input">{{ username }}</span>
+            <span v-if="usernameError && isEditing" class="error-text">{{ usernameError }}</span>
           </div>
           <div class="profile-field">
             <label class="profile-label">Your Email</label>
-            <input  v-if="isEditing" v-model="email" class="profile-input" type="email"/>
-            <span v-else class="profile-input">{{ email }}</span>
+            <span class="profile-input readonly-field">{{ email }}</span>
           </div>
           <div class="profile-field">
             <label class="profile-label">Bio</label>
@@ -111,7 +251,14 @@ const handleLogout = async () => {
 
       <div class="profile-actions">
         <button class="save-btn" @click="handleEdit" v-if="!isEditing">Edit</button>
-        <button class="save-btn" @click="handleSave" v-if="isEditing">Save</button>
+        <template v-else>
+          <button class="save-btn" @click="handleSave" :disabled="isSaving || isUploading">
+            {{ isSaving ? 'Saving...' : 'Save' }}
+          </button>
+          <button class="cancel-btn" @click="handleCancel" :disabled="isSaving">
+            Cancel
+          </button>
+        </template>
         <button class="logout-btn" @click="handleLogout">Logout</button>
       </div>
 
@@ -119,7 +266,7 @@ const handleLogout = async () => {
   </div>
 </template>
 
-<style>
+<style scoped>
 .profile{
   display: flex;
   width: 100%;
@@ -140,11 +287,21 @@ const handleLogout = async () => {
   margin-bottom: 24px;
   background-color: transparent;
 }
+/* Error Banner for global errors */
+.error-banner{
+  background-color: rgba(255, 107, 107, 0.15);
+  border: 1px solid #ff6b6b;
+  color: #ff6b6b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
 .profile-body{
   display: flex;
   gap: 40px;
   align-items: flex-start;
-  padding: 40px 40px;
+  padding: 40px 0px;
   border-radius: 12px;
 }
 .profile-left{
@@ -159,6 +316,20 @@ const handleLogout = async () => {
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid #F5C842;
+}
+/* Change Avatar Button */
+.upload-btn{
+  color: #F5C842;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 12px;
+  border: 1px solid #F5C842;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+.upload-btn:hover {
+  background-color: rgba(245, 200, 66, 0.1);
 }
 .profile-info{
   flex: 1;
@@ -193,6 +364,20 @@ const handleLogout = async () => {
 .profile-input:focus{
   border: 1px solid #F5C842;
 }
+/* Red border when validation fails */
+.input-error {
+  border: 1px solid #ff6b6b !important;
+}
+.readonly-field{
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+/* Inline Username Error text */
+.error-text {
+  color: #ff6b6b;
+  font-size: 12px;
+  margin-top: 2px;
+}
 .profile-bio{
   resize: none;
   height: 80px;
@@ -216,17 +401,40 @@ const handleLogout = async () => {
   font-weight: 500;
   cursor:pointer;
   transition:background 0.2s ease;
-  width: 80px;
+  min-width: 80px;
 }
-.save-btn:hover{
+.save-btn:hover:not(:disabled){
   background-color: #e6b800;
+}
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+/* Subtle style for Cancel so it doesn't fight with Save */
+.cancel-btn {
+  background-color: transparent;
+  color: #E6EDF3;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+}
+.cancel-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .logout-btn{
   background-color: transparent;
   color: #ff6b6b;
   border: 1px solid #ff6b6b;
   border-radius: 8px;
-  padding: 10px 24px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
