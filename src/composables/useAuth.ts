@@ -49,6 +49,8 @@ export function useAuth() {
     user,
     session,
     isLoading,
+    initAuth,
+    signUp,
     signIn,
     signOut,
   }
