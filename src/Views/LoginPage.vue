@@ -1,56 +1,76 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { useRouter} from 'vue-router'
-  import { isLoggedIn, login } from '@/stores/auth'
+  import { useAuth } from '../composables/useAuth'
 
   const router = useRouter()
+  const { signIn } = useAuth()
 
   const email = ref('')
   const password = ref ('')
   const errorMessage = ref('')
+  const isLoading = ref(false)
 
-  const fakeUser = {
-    email:'test@example.com',
-    password:'password123'
-  }
-
-  const handleLogin = () =>{
+  const handleLogin = async() =>{
     // resets error message
     errorMessage.value = ''
-
-    // check if fields are empty
+    // basic validation for empty fields and valid email format
     if (!email.value  || !password.value){
       errorMessage.value="Please fill in all fields"
       return
     }
-    // checks for valid email
     if (!email.value.includes('@')) {
       errorMessage.value = 'Please enter a valid email'
       return
     }
-    // check if credentials match fake user, sets status to logged (Auth.ts) and redirects
-    if (email.value === fakeUser.email && password.value === fakeUser.password){
-      console.log('login called')
-      login()
-      console.log('isLoggedIn', isLoggedIn.value)
-      router.push('/')
-    } else {
-      errorMessage.value = 'Invalid email or password'
-    }
-  }
 
+    isLoading.value = true
+
+    try{
+      // authentication with Supabase
+      await signIn(email.value, password.value)
+
+      //redirect to home on successful authentication
+      router.push('/')
+      } catch (err) {
+          // Type-safe error handling without 'any'
+          if (err instanceof Error) {
+            errorMessage.value = err.message
+          } else {
+            errorMessage.value = 'An error occurred during login'
+          }
+        } finally {
+          isLoading.value = false
+        }
+  }
 </script>
 
 <template>
   <div class="login">
     <div class="login-menu">
       <h1 class="login-title">Welcome to the Login Page</h1>
-        <div class="login-form">
-          <input v-model="email" type="email" placeholder="Email" class="login-input">
-          <input v-model="password" type="password" placeholder="Password" class="login-input">
+
+        <form @submit.prevent="handleLogin" class="login-form">
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Email"
+            class="login-input"
+          />
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Password"
+            class="login-input"
+          />
+
           <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
-          <button class="login-btn" @click="handleLogin">Sign in</button>
-        </div>
+
+          <button class="login-btn" type="submit" :disabled="isLoading">
+            {{ isLoading ? 'Logging in...' : 'Log in' }}
+          </button>
+
+        </form>
     </div>
   </div>
 </template>
