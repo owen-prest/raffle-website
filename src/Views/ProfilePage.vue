@@ -1,31 +1,58 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
-import { logout } from '@/stores/auth'
+import { useAuth } from '@/composables/useAuth'
+import { supabase } from '@/supabase'
 import profileImg from '@/assets/images/profileImg.webp'
 
 const router = useRouter()
+const { user, signOut } = useAuth()
 
-const username = ref('you username')
-const email = ref('your@email.com')
-const bio = ref('your bio')
+// initialise state from Supabase user data
+const email = ref(user.value?.email || '')
+const username = ref(user.value?.user_metadata?.username || 'Username')
+const bio = ref(user.value?.user_metadata?.bio || 'Tell us about yourself...')
+
+// automatically updates fields if user session finishes loading asynchronously
+watchEffect(() => {
+  if (user.value) {
+    email.value = user.value.email || ''
+    username.value = user.value.user_metadata?.username || username.value
+    bio.value = user.value.user_metadata?.bio || bio.value
+  }
+})
 
 //tracks if the user is in edit mode
 const isEditing = ref(false)
-
-// tracks if the users login status
-const handleLogout = () => {
-  logout()
-  router.push('/login')
-}
 const handleEdit = () => {
   isEditing.value = true
 }
 
 // saves changes to the profile
-const handleSave =() => {
-  isEditing.value = false
-  console.group('saved!')
+const handleSave = async () => {
+  try{
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        username: username.value,
+        bio: bio.value,
+      },
+    })
+    if (error) throw error
+
+    isEditing.value = false
+  } catch (err) {
+    console.error('Error updating user:', err)
+  }
+}
+
+// handles logout asynchronously and redirects to login page
+const handleLogout = async () => {
+  try{
+    await signOut()
+    router.push('/login')
+  } catch (err){
+    console.error('Error signing out:', err)
+  }
 }
 </script>
 
