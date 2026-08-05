@@ -45,18 +45,18 @@ const router = createRouter({
 })
 
 // Navigation guard
-router.beforeEach(async(to, from, next) => {
+router.beforeEach(async(to) => {
   // 1. Await Supabase session check directly (reads from localStorage synchronously/fast on refresh)
   const { data: { session } } = await supabase.auth.getSession()
   const isAuthenticated = !!session
   // 2. Protected routes check
   if (to.meta.requiresAuth && !isAuthenticated) {
-    return next({ name: 'login' })
+    return ({ name: 'login' })
   }
   // 3. Guest-only routes check (login/signup)
   if (to.meta.redirectIfAuth && isAuthenticated) {
-    return next({ name: 'dashboard' })
+    return ({ name: 'dashboard' })
   }
-  next()
+  // Returning undefined/true allows navigation to proceed naturally
 })
 export default router
