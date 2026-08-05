@@ -1,9 +1,9 @@
 // src/composables/useAuth.ts
-import { ref } from 'vue'
+import { ref, readonly} from 'vue'
 import { supabase } from '@/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
-// Global reactive state
+// Centralized state defined outside the composable to ensure single shared instance across app
 const user = ref<User | null>(null)
 const session = ref<Session | null>(null)
 const isLoading = ref<boolean>(true) // Start as true while checking storage on load
@@ -73,9 +73,9 @@ export function useAuth() {
 
   // Explicitly return auth state and helper functions
   return {
-    user,
-    session,
-    isLoading,
+    user: readonly(user),
+    session: readonly(session),
+    isLoading: readonly(isLoading),
     signUp,
     signOut
   }
