@@ -1,9 +1,9 @@
 // src/composables/useAuth.ts
-import { ref } from 'vue'
+import { ref, readonly } from 'vue'
 import { supabase } from '@/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
-// Global reactive state
+// Centralized state defined outside the composable to ensure single shared instance across app
 const user = ref<User | null>(null)
 const session = ref<Session | null>(null)
 const isLoading = ref<boolean>(true) // Start as true while checking storage on load
@@ -38,8 +38,19 @@ const initAuth = async () => {
 initAuth()
 
 export function useAuth() {
+  // Sign in existing users securely with credentials
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) throw error
+    return data
+  }
+
   const signUp = async (email: string, password: string, username: string) => {
-    const trimmedUsername = username.trim()
+    const trimmedUsername = (username || '').trim()
 
     // 1. Create the user in Supabase Auth
     const { data, error } = await supabase.auth.signUp({
@@ -73,9 +84,10 @@ export function useAuth() {
 
   // Explicitly return auth state and helper functions
   return {
-    user,
-    session,
-    isLoading,
+    user: readonly(user),
+    session: readonly(session),
+    isLoading: readonly(isLoading),
+    signIn,
     signUp,
     signOut
   }

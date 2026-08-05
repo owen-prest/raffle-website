@@ -13,6 +13,8 @@
 
   // basic validation for empty fields and valid email format
   const handleLogin = async() =>{
+    errorMessage.value = '' // Clear error at the start
+
     if (!email.value  || !password.value){
       errorMessage.value="Please fill in all fields"
       return
