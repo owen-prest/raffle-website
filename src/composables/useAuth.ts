@@ -38,57 +38,45 @@ const initAuth = async () => {
 initAuth()
 
 export function useAuth() {
-
-  const signUp = async (email: string, password: string, username:string) => {
+  const signUp = async (email: string, password: string, username: string) => {
     const trimmedUsername = username.trim()
-    // Create user in supabase
+
+    // 1. Create the user in Supabase Auth
     const { data, error } = await supabase.auth.signUp({
-       email,
-       password,
-       options: {
-         data: { username: trimmedUsername }
-       }
-      })
+      email,
+      password,
+      options: {
+        data: { username: trimmedUsername } // Stores in auth.users user_metadata
+      }
+    })
 
     if (error) throw error
 
-    // If the user is created successfully, update the profile in the 'profiles' table
-    if(data.user) {
+    // 2. Create the corresponding record in public.profiles table
+    if (data.user) {
       const { error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
         username: trimmedUsername,
         updated_at: new Date().toISOString()
-    })
+      })
 
-    if (profileError) {
-      console.error('Error updating profile:', profileError)
+      if (profileError) console.error('Error creating profile:', profileError)
     }
-  }
 
-    return data
-  }
-
-  const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    user.value = data.user
-    session.value = data.session
     return data
   }
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
-    user.value = null
-    session.value = null
   }
 
+  // Explicitly return auth state and helper functions
   return {
     user,
     session,
     isLoading,
     signUp,
-    signIn,
-    signOut,
+    signOut
   }
 }
