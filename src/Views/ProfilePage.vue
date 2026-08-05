@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watchEffect } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { supabase } from '@/supabase'
@@ -50,12 +50,16 @@ const loadProfile = async () => {
   }
 }
 
-// Automatically sync when user loads (only while not editing)
-watchEffect(() => {
-  if (user.value && !isEditing.value) {
-    loadProfile()
-  }
-})
+// Sync profile when user loads or when exiting edit mode
+watch(
+  [user, isEditing],
+  ([newUser, newIsEditing]) => {
+    if (newUser && !newIsEditing) {
+      loadProfile()
+    }
+  },
+  { immediate: true }
+)
 
 // Query Supabase to check if another user has this username
 const isUsernameTaken = async (nameToCheck: string): Promise<boolean> => {
@@ -153,12 +157,15 @@ const handleSave = async () => {
       return
     }
 
+    // Strip cache-busting timestamp (?t=123456) so only the clean public URL is stored in DB
+    const cleanAvatarUrl = avatarUrl.value ? avatarUrl.value.split('?')[0] : ''
+
     // 2. Upsert into public 'profiles' table
     const { error: dbError } = await supabase.from('profiles').upsert({
       id: user.value.id,
       username: trimmedUsername,
       bio: bio.value,
-      avatar_url: avatarUrl.value,
+      avatar_url: cleanAvatarUrl,
       updated_at: new Date().toISOString()
     })
 
@@ -169,7 +176,7 @@ const handleSave = async () => {
       data: {
         username: trimmedUsername,
         bio: bio.value,
-        avatar_url: avatarUrl.value
+        avatar_url: cleanAvatarUrl
       }
     })
 
