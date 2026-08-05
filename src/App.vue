@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import SideNav from './components/SideNav.vue'
   import AppFooter from './components/AppFooter.vue'
-  import { useAuth } from '@/composables'
+  import { useAuth } from './composables/useAuth'
 
   const { isLoading } = useAuth()
 </script>
