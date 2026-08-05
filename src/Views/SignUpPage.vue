@@ -1,24 +1,23 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
 import { supabase } from '@/supabase'
 
 const router = useRouter()
-const { signUp } = useAuth()
 
 const email = ref('')
 const password = ref('')
 const username = ref('')
 
 const usernameError = ref('')
+const passwordError = ref('')
 const generalError = ref('')
 const isCheckingUsername = ref(false)
 const isSubmitting = ref(false)
 
 // Check database for existing username
 const checkUsernameAvailability = async (): Promise<boolean> => {
-  const trimmed = username.value.trim()
+  const trimmed = (username.value || '').trim()
   usernameError.value = ''
 
   if (!trimmed) {
@@ -55,15 +54,47 @@ const checkUsernameAvailability = async (): Promise<boolean> => {
   }
 }
 
+// Validate password length on blur
+const validatePassword = () => {
+  const cleanPassword = (password.value || '').trim()
+  passwordError.value = ''
+
+  if (cleanPassword.length > 0 && cleanPassword.length < 6) {
+    passwordError.value = 'Password must be at least 6 characters'
+  }
+}
+
 const handleSignUp = async () => {
   generalError.value = ''
+  passwordError.value = ''
+
+  const cleanEmail = (email.value || '').trim()
+  const cleanPassword = (password.value || '').trim()
+  const cleanUsername = (username.value || '').trim()
+
+  if (cleanPassword.length < 6) {
+    passwordError.value = 'Password must be at least 6 characters'
+    return
+  }
 
   const isAvailable = await checkUsernameAvailability()
   if (!isAvailable) return
 
   try {
     isSubmitting.value = true
-    await signUp(email.value, password.value, username.value)
+
+    const { error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password: cleanPassword,
+      options: {
+        data: {
+          username: cleanUsername,
+        }
+      }
+    })
+
+    if (error) throw error
+
     router.push('/profile')
   } catch (err: unknown) {
     if (err instanceof Error) {
@@ -124,9 +155,13 @@ const handleSignUp = async () => {
             v-model="password"
             type="password"
             class="signup-input"
-            placeholder="••••••••"
+            :class="{ 'input-error': passwordError }"
+            placeholder="••••••••••••••"
+            @blur="validatePassword"
+            @input="passwordError = ''"
             required
           />
+          <span v-if="passwordError" class="error-text">{{ passwordError }}</span>
         </div>
 
         <!-- Error Banner -->
@@ -138,7 +173,7 @@ const handleSignUp = async () => {
         <button
           type="submit"
           class="signup-btn"
-          :disabled="isSubmitting || isCheckingUsername || !!usernameError"
+          :disabled="isSubmitting || isCheckingUsername || !!usernameError || !!passwordError"
         >
           {{ isSubmitting ? 'Creating account...' : 'Sign Up' }}
         </button>

@@ -63,7 +63,7 @@ watch(
 
 // Query Supabase to check if another user has this username
 const isUsernameTaken = async (nameToCheck: string): Promise<boolean> => {
-  const trimmed = nameToCheck.trim()
+  const trimmed = (nameToCheck || '').trim()
   if (!trimmed) return false
 
   const { data, error} = await supabase
@@ -138,7 +138,7 @@ const handleSave = async () => {
     return
   }
 
-  const trimmedUsername = username.value.trim()
+  const trimmedUsername = (username.value || '').trim()
 
   if (!trimmedUsername) {
     usernameError.value = 'Username cannot be empty'

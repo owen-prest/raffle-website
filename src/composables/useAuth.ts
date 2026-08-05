@@ -38,8 +38,8 @@ const initAuth = async () => {
 initAuth()
 
 export function useAuth() {
-  const signUp = async (email: string, password: string, username: string) => {
-    const trimmedUsername = username.trim()
+  const signIn = async (email: string, password: string, username: string) => {
+    const trimmedUsername = (username || '').trim()
 
     // 1. Create the user in Supabase Auth
     const { data, error } = await supabase.auth.signUp({
@@ -76,7 +76,7 @@ export function useAuth() {
     user: readonly(user),
     session: readonly(session),
     isLoading: readonly(isLoading),
-    signUp,
+    signIn,
     signOut
   }
 }
