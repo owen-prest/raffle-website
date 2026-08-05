@@ -1,5 +1,5 @@
 // src/composables/useAuth.ts
-import { ref, readonly} from 'vue'
+import { ref, readonly } from 'vue'
 import { supabase } from '@/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
@@ -38,7 +38,18 @@ const initAuth = async () => {
 initAuth()
 
 export function useAuth() {
-  const signIn = async (email: string, password: string, username: string) => {
+  // Sign in existing users securely with credentials
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) throw error
+    return data
+  }
+
+  const signUp = async (email: string, password: string, username: string) => {
     const trimmedUsername = (username || '').trim()
 
     // 1. Create the user in Supabase Auth
@@ -77,6 +88,7 @@ export function useAuth() {
     session: readonly(session),
     isLoading: readonly(isLoading),
     signIn,
+    signUp,
     signOut
   }
 }
