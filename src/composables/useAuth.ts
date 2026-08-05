@@ -38,9 +38,33 @@ const initAuth = async () => {
 initAuth()
 
 export function useAuth() {
-  const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password })
+
+  const signUp = async (email: string, password: string, username:string) => {
+    const trimmedUsername = username.trim()
+    // Create user in supabase
+    const { data, error } = await supabase.auth.signUp({
+       email,
+       password,
+       options: {
+         data: { username: trimmedUsername }
+       }
+      })
+
     if (error) throw error
+
+    // If the user is created successfully, update the profile in the 'profiles' table
+    if(data.user) {
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: data.user.id,
+        username: trimmedUsername,
+        updated_at: new Date().toISOString()
+    })
+
+    if (profileError) {
+      console.error('Error updating profile:', profileError)
+    }
+  }
+
     return data
   }
 
