@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue'
-  import { RouterLink } from 'vue-router'
+  import { RouterLink, useRouter } from 'vue-router'
   import {useAuth} from '@/composables/useAuth'
   import { navLinks } from '@/constants/navigation';
 
@@ -15,14 +15,26 @@
   // reactive state for sidebar collapse
   const collapsed=ref(false)
 
+  const router = useRouter()
+
   // access supabase user states
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const isLoggedIn = computed(() => !!user.value)
 
   // cast the JS import to our interface to enable TypeScript type-checking
   const navItems = (navLinks as unknown) as NavItem[];
 
-  // dynamically return the appropriate auth route based on login state
+  // handle user logout and redirects
+  const handleLogout = async() => {
+    try {
+    await signOut()
+    router.push('/login')
+    } catch (err) {
+    console.error('Failed to sign out:', err)
+    }
+  }
+
+
   const authItem = computed<NavItem>(() =>
     isLoggedIn.value
       ? { label: 'Profile', icon: 'fa-solid fa-user', path: '/profile' }
@@ -31,7 +43,7 @@
 </script>
 
 <template>
-  <nav :class="['sideNav', {collapsed}]">
+  <nav :class="['sideNav', { collapsed }]">
 
     <div class="logo-area" @click="collapsed = !collapsed">
         <div class="logo-icon">
@@ -56,14 +68,26 @@
         <span v-if="item.badge" :class="['badge', { hidden:collapsed }]">{{ item.badge }}</span>
       </router-link>
 
-      <!-- dynamically switches between Login and Profile -->
-      <router-link :to="authItem.path" class="nav-item">
-        <span class="nav-icon"><i :class="authItem.icon"></i></span>
-        <span :class="['nav-label', { hidden:collapsed }]">{{ authItem.label }}</span>
+      <!-- Profile Link (Shown when logged in) -->
+      <router-link v-if="isLoggedIn" to="/profile" class="nav-item">
+        <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+        <span :class="['nav-label', { hidden: collapsed }]">Profile</span>
+      </router-link>
+
+      <!-- Login Link (Shown when logged out) -->
+      <router-link v-else to="/login" class="nav-item">
+        <span class="nav-icon"><i class="fa-solid fa-right-to-bracket"></i></span>
+        <span :class="['nav-label', { hidden: collapsed }]">Login</span>
       </router-link>
     </div>
 
     <div class="divider"></div>
+
+      <!-- Logout Button (Shown only when logged in) -->
+      <div v-if="isLoggedIn" @click="handleLogout" class="nav-item logout-item">
+        <span class="nav-icon"><i class="fa-solid fa-right-from-bracket"></i></span>
+        <span :class="['nav-label', { hidden: collapsed }]">Log out</span>
+      </div>
 
     <RouterLink to="/settings" class="nav-item">
       <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
@@ -184,11 +208,14 @@
     color: #c8dcea;
     border-left: 3px solid rgba(245, 200, 66, 0.3);
   }
-  /* vue-router automatically adds this class to the current page link */
   .nav-item.router-link-active {
     background: #162840;
     color: #F5C842;
     border-left: 3px solid #F5C842;
+  }
+  .logout-item:hover {
+    color: #ff6b6b;
+    border-left: 3px solid rgba(255, 107, 107, 0.3);
   }
   .nav-icon{
     font-size: 16px;
