@@ -1,272 +1,335 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { supabase } from '@/supabase'
-import defaultProfileImg from '@/assets/images/profileImg.webp'
+import { userTicketStore } from '@/stores/userTickets'
+import placeholder from '@/assets/images/placeholder.webp'
 
 const router = useRouter()
-const { user, signOut } = useAuth()
+const { user, profile, loading: authLoading, fetchProfile } = useAuth()
 
-// Profile State
-const email = ref(user.value?.email || '')
-const username = ref(user.value?.user_metadata?.username || 'Username')
-const bio = ref(user.value?.user_metadata?.bio || 'Tell us about yourself...')
-const avatarUrl = ref(user.value?.user_metadata?.avatar_url || '')
-
-// Status and Feedback States
-const isEditing = ref(false)
-const isSaving = ref(false)
-const isUploading = ref(false)
-const usernameError = ref('')
+// Profile Form States
+const username = ref('')
+const fullName = ref('')
+const avatarUrl = ref('')
+const uploading = ref(false)
+const saving = ref(false)
 const errorMessage = ref('')
+const successMessage = ref('')
 
-// Load existing profile from Supabase 'profiles' table
-const loadProfile = async () => {
+// Password States
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordError = ref('')
+const passwordSuccess = ref('')
+const isUpdatingPassword = ref(false)
+
+// Admin Application States
+const adminReason = ref('')
+const isSubmittingAdmin = ref(false)
+const existingApplication = ref<{ status: string; reason: string } | null>(null)
+const adminMessage = ref('')
+const adminError = ref('')
+
+onMounted(async () => {
+  await fetchProfile()
+  if (profile.value) {
+    username.value = profile.value.username || ''
+    fullName.value = profile.value.full_name || ''
+    avatarUrl.value = profile.value.avatar_url || placeholder
+  }
+  await fetchApplicationStatus()
+})
+
+// Fetch Admin Application Status
+const fetchApplicationStatus = async () => {
   if (!user.value) return
-
-    email.value = user.value.email || ''
-
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('username, bio, avatar_url')
-      .eq('id', user.value.id)
+    const { data, error: err } = await supabase
+      .from('admin_applications')
+      .select('status, reason')
+      .eq('user_id', user.value.id)
       .maybeSingle()
 
-    if (error) throw error
-
+    if (err) throw err
     if (data) {
-      username.value = data.username || user.value.user_metadata?.username || ''
-      bio.value = data.bio || user.value.user_metadata?.bio || ''
-      avatarUrl.value = data.avatar_url || user.value.user_metadata?.avatar_url || ''
-    } else{
-      // If no DB row exists yet, retain auth metadata defaults
-      username.value = user.value.user_metadata?.username || username.value || 'Username'
-      bio.value = user.value.user_metadata?.bio || bio.value || ''
+      existingApplication.value = data
     }
+  } catch (err) {
+    console.error('Error checking application status:', err)
+  }
+}
+
+// Submit Admin Application
+const submitAdminApplication = async () => {
+  if (!user.value) return
+  if (!adminReason.value.trim()) {
+    adminError.value = 'Please provide a reason for applying.'
+    return
+  }
+
+  try {
+    isSubmittingAdmin.value = true
+    adminError.value = ''
+    adminMessage.value = ''
+
+    const { error: insertError } = await supabase.from('admin_applications').insert({
+      user_id: user.value.id,
+      reason: adminReason.value.trim(),
+      status: 'pending'
+    })
+
+    if (insertError) throw insertError
+
+    adminMessage.value = 'Application submitted successfully! Our team will review it shortly.'
+    adminReason.value = ''
+    await fetchApplicationStatus()
   } catch (err: unknown) {
-    console.error('Error loading profile:', err)
-  }
-}
-
-// Sync profile when user loads or when exiting edit mode
-watch(
-  [user, isEditing],
-  ([newUser, newIsEditing]) => {
-    if (newUser && !newIsEditing) {
-      loadProfile()
+    if (err && typeof err === 'object' && 'message' in err) {
+      adminError.value = (err as { message: string }).message
+    } else {
+      adminError.value = 'Failed to submit application.'
     }
-  },
-  { immediate: true }
-)
-
-// Query Supabase to check if another user has this username
-const isUsernameTaken = async (nameToCheck: string): Promise<boolean> => {
-  const trimmed = (nameToCheck || '').trim()
-  if (!trimmed) return false
-
-  const { data, error} = await supabase
-  .from('profiles')
-  .select('id')
-  .ilike('username', trimmed) // case-insensitive match
-  .neq('id', user.value?.id || '') // exclude current user's profile
-  .maybeSingle()
-
-  if (error) {
-    console.error('Error checking username:', error)
-    return false
+  } finally {
+    isSubmittingAdmin.value = false
   }
-  return !!data
 }
 
-// Handle image selection and upload to Supabase Storage bucket
-const handleAvatarUpload = async (event:Event) => {
-  const target = event.target as HTMLInputElement
-  if (!target.files || target.files.length === 0 || !user.value) return
-
-  const file = target.files[0]
-  const fileExt = file.name.split('.').pop()
-  const filePath = `${user.value.id}/avatar.${fileExt}`
-
-  try{
-    isUploading.value = true
+// Upload Avatar
+const uploadAvatar = async (event: Event) => {
+  try {
+    uploading.value = true
     errorMessage.value = ''
+    const target = event.target as HTMLInputElement
+    if (!target.files || target.files.length === 0) return
 
-    // Upload to 'avatars' storage bucket (upsert overwrites previous avatar)
+    const file = target.files[0]
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${user.value?.id}-${Math.random()}.${fileExt}`
+    const filePath = `${fileName}`
+
     const { error: uploadError } = await supabase.storage
       .from('avatars')
       .upload(filePath, file, { upsert: true })
 
     if (uploadError) throw uploadError
 
-    // Retrieve public URL
-    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+    const { data: publicUrlData } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath)
 
-    // Append timestamp to bust browser image cache
-    avatarUrl.value = `${data.publicUrl}?t=${Date.now()}`
+    avatarUrl.value = publicUrlData.publicUrl + '?t=' + new Date().getTime()
   } catch (err: unknown) {
     console.error('Error uploading avatar:', err)
-    if (err instanceof Error) {
-      errorMessage.value = err.message
-    } else {
-      errorMessage.value = 'Failed to upload avatar.'
-    }
+    errorMessage.value = 'Failed to upload avatar.'
   } finally {
-    isUploading.value = false
+    uploading.value = false
   }
 }
 
-const handleEdit = () => {
-  errorMessage.value = ''
-  isEditing.value = true
+// Update Profile Details
+const updateProfile = async () => {
+  if (!user.value) return
+  try {
+    saving.value = true
+    errorMessage.value = ''
+    successMessage.value = ''
+
+    const updates = {
+      id: user.value.id,
+      username: username.value,
+      full_name: fullName.value,
+      avatar_url: avatarUrl.value,
+      updated_at: new Date()
+    }
+
+    const { error } = await supabase.from('profiles').upsert(updates)
+    if (error) throw error
+
+    successMessage.value = 'Profile updated successfully!'
+    await fetchProfile()
+  } catch (err: unknown) {
+    console.error('Error updating profile:', err)
+    if (err && typeof err === 'object' && 'message' in err) {
+      errorMessage.value = (err as { message: string }).message
+    } else {
+      errorMessage.value = 'Failed to update profile.'
+    }
+  } finally {
+    saving.value = false
+  }
 }
 
-const handleCancel = () => {
-  username.value = user.value?.user_metadata?.username || ''
-  bio.value = user.value?.user_metadata?.bio || ''
-  usernameError.value = ''
-  errorMessage.value = ''
-  isEditing.value = false
-  loadProfile() // Reloads latest DB values, reverting username, bio, and unsaved avatar uploads
-}
+// Handle Password Change
+const handleChangePassword = async () => {
+  passwordError.value = ''
+  passwordSuccess.value = ''
 
-// Validate unique username & save changes
-const handleSave = async () => {
-  if (!user.value) {
-    errorMessage.value = 'User session not found. Please log in again.'
+  if (!newPassword.value || !confirmPassword.value) {
+    passwordError.value = 'Please fill in all password fields.'
     return
   }
 
-  const trimmedUsername = (username.value || '').trim()
+  if (newPassword.value.length < 6) {
+    passwordError.value = 'Password must be at least 6 characters long.'
+    return
+  }
 
-  if (!trimmedUsername) {
-    usernameError.value = 'Username cannot be empty'
+  if (newPassword.value !== confirmPassword.value) {
+    passwordError.value = 'New passwords do not match.'
     return
   }
 
   try {
-    isSaving.value = true
-    usernameError.value = ''
-    errorMessage.value = ''
-
-    // 1. Check uniqueness across DB
-    const taken = await isUsernameTaken(trimmedUsername)
-    if (taken) {
-      usernameError.value = 'Username is already taken. Please choose another.'
-      return
-    }
-
-    // Strip cache-busting timestamp (?t=123456) so only the clean public URL is stored in DB
-    const cleanAvatarUrl = avatarUrl.value ? avatarUrl.value.split('?')[0] : ''
-
-    // 2. Upsert into public 'profiles' table
-    const { error: dbError } = await supabase.from('profiles').upsert({
-      id: user.value.id,
-      username: trimmedUsername,
-      bio: bio.value,
-      avatar_url: cleanAvatarUrl,
-      updated_at: new Date().toISOString()
+    isUpdatingPassword.value = true
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword.value
     })
 
-    if (dbError) throw dbError
+    if (error) throw error
 
-    // 3. Update auth metadata
-    const { error: authError } = await supabase.auth.updateUser({
-      data: {
-        username: trimmedUsername,
-        bio: bio.value,
-        avatar_url: cleanAvatarUrl
-      }
-    })
+    passwordSuccess.value = 'Password updated successfully!'
+    newPassword.value = ''
+    confirmPassword.value = ''
 
-    if (authError) throw authError
-
-    // Exit edit mode on success
-    isEditing.value = false
+    setTimeout(() => {
+      passwordSuccess.value = ''
+    }, 3000)
   } catch (err: unknown) {
-    console.error('Error saving profile:', err)
-
-    // Safely check for a message on Supabase error objects or standard Error instances
+    console.error('Error updating password:', err)
     if (err && typeof err === 'object' && 'message' in err) {
-      errorMessage.value = (err as { message: string }).message
+      passwordError.value = (err as { message: string }).message
     } else {
-      errorMessage.value = 'Failed to save profile changes.'
+      passwordError.value = 'Failed to update password.'
     }
   } finally {
-    isSaving.value = false
-  }
-}
-
-// handles logout asynchronously and redirects to login page
-const handleLogout = async () => {
-  try{
-    await signOut()
-    router.push('/login')
-  } catch (err){
-    console.error('Error signing out:', err)
+    isUpdatingPassword.value = false
   }
 }
 </script>
 
 <template>
-  <div class="profile">
-    <div class="profile-card">
+  <div class="profile-page">
+    <h1 class="home-title">Account Settings</h1>
 
-      <h1 class="profile-title">Hello {{ username }}!</h1>
+    <div v-if="authLoading" class="loading-state">Loading profile...</div>
 
-      <!-- Error banner for general failures -->
-      <div v-if="errorMessage" class="error-banner">
-        {{ errorMessage }}
-      </div>
+    <div v-else class="profile-container">
 
-      <div class="profile-body">
-        <div class ="profile-left">
-          <img class="profile-image" :src="avatarUrl || defaultProfileImg" alt="profile image">
+      <!-- Profile Details Card -->
+      <div class="profile-card">
+        <h2 class="section-title">Profile Details</h2>
 
-          <!-- Upload Avatar button only visible during edit mode -->
-          <label v-if="isEditing" class="upload-btn">
-            {{ isUploading ? 'Uploading...' : 'Change Avatar' }}
-            <input
-              type="file"
-              accept="image/*"
-              @change="handleAvatarUpload"
-              :disabled="isUploading"
-              hidden
-            />
+        <div v-if="errorMessage" class="error-banner">{{ errorMessage }}</div>
+        <div v-if="successMessage" class="success-banner">{{ successMessage }}</div>
+
+        <div class="avatar-section">
+          <img :src="avatarUrl || placeholder" alt="Avatar" class="profile-avatar" />
+          <label class="upload-btn">
+            {{ uploading ? 'Uploading...' : 'Change Avatar' }}
+            <input type="file" accept="image/*" @change="uploadAvatar" :disabled="uploading" style="display: none;" />
           </label>
         </div>
 
-        <div class="profile-info">
-          <div class="profile-field">
-            <label class="profile-label">Your Username</label>
-            <input v-if="isEditing" v-model="username" @input="usernameError = ''" class="profile-input" :class="{ 'input-error': usernameError }" type="text"/>
-            <span v-else class="profile-input">{{ username }}</span>
-            <span v-if="usernameError && isEditing" class="error-text">{{ usernameError }}</span>
+        <div class="profile-form">
+          <div class="profile-row">
+            <div class="profile-field">
+              <label class="profile-label">Email</label>
+              <input class="profile-input" type="text" :value="user?.email" disabled />
+            </div>
+            <div class="profile-field">
+              <label class="profile-label">Username</label>
+              <input v-model="username" class="profile-input" type="text" placeholder="Enter username" />
+            </div>
           </div>
+
           <div class="profile-field">
-            <label class="profile-label">Your Email</label>
-            <span class="profile-input readonly-field">{{ email }}</span>
+            <label class="profile-label">Full Name</label>
+            <input v-model="fullName" class="profile-input" type="text" placeholder="Enter full name" />
           </div>
-          <div class="profile-field">
-            <label class="profile-label">Bio</label>
-            <textarea  v-if="isEditing" v-model="bio" class="profile-input profile-bio"></textarea>
-            <span v-else class="profile-input profile-bio">{{ bio }}</span>
+
+          <div class="profile-actions">
+            <button class="save-btn" @click="updateProfile" :disabled="saving">
+              {{ saving ? 'Saving...' : 'Save Changes' }}
+            </button>
           </div>
         </div>
       </div>
 
-      <div class="profile-actions">
-        <button class="save-btn" @click="handleEdit" v-if="!isEditing">Edit</button>
-        <template v-else>
-          <button class="save-btn" @click="handleSave" :disabled="isSaving || isUploading">
-            {{ isSaving ? 'Saving...' : 'Save' }}
-          </button>
-          <button class="cancel-btn" @click="handleCancel" :disabled="isSaving">
-            Cancel
-          </button>
-        </template>
-        <button class="logout-btn" @click="handleLogout">Logout</button>
+      <!-- Security Card: Change Password -->
+      <div class="profile-card security-card">
+        <h2 class="section-title">Change Password</h2>
+
+        <div v-if="passwordError" class="error-banner">{{ passwordError }}</div>
+        <div v-if="passwordSuccess" class="success-banner">{{ passwordSuccess }}</div>
+
+        <div class="password-form">
+          <div class="profile-row">
+            <div class="profile-field">
+              <label class="profile-label">New Password</label>
+              <input v-model="newPassword" class="profile-input" type="password" placeholder="At least 6 characters" />
+            </div>
+            <div class="profile-field">
+              <label class="profile-label">Confirm New Password</label>
+              <input v-model="confirmPassword" class="profile-input" type="password" placeholder="Confirm new password" />
+            </div>
+          </div>
+          <div class="profile-actions">
+            <button class="save-btn" @click="handleChangePassword" :disabled="isUpdatingPassword">
+              {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Become an Admin Card -->
+      <div class="profile-card admin-application-card">
+        <h2 class="section-title">Become an Admin</h2>
+
+        <div v-if="adminError" class="error-banner">{{ adminError }}</div>
+        <div v-if="adminMessage" class="success-banner">{{ adminMessage }}</div>
+
+        <div v-if="existingApplication" class="application-status-box">
+          <p class="status-text">
+            Application Status:
+            <span :class="['badge', existingApplication.status]">
+              {{ existingApplication.status.toUpperCase() }}
+            </span>
+          </p>
+          <p class="submitted-reason"><strong>Your Reason:</strong> "{{ existingApplication.reason }}"</p>
+        </div>
+
+        <div v-else class="application-form">
+          <p class="form-desc">Want to host and create your own raffles? Apply to become a platform administrator.</p>
+          <div class="profile-field">
+            <label class="profile-label">Why do you want to be an admin?</label>
+            <textarea v-model="adminReason" class="profile-input profile-bio" placeholder="Tell us about your plans..."></textarea>
+          </div>
+          <div class="profile-actions">
+            <button class="save-btn" @click="submitAdminApplication" :disabled="isSubmittingAdmin">
+              {{ isSubmittingAdmin ? 'Submitting...' : 'Submit Application' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity Card -->
+      <div class="profile-card activity-card">
+        <h2 class="section-title">Recent Activity & Tickets</h2>
+        <div class="activity-content">
+          <template v-if="Object.keys(userTicketStore).length > 0">
+            <div class="activity-list" v-for="(tickets, raffleId) in userTicketStore" :key="raffleId">
+              <div class="activity-item">
+                <span class="activity-raffle-name">Raffle #{{ raffleId }}</span>
+                <div class="activity-tickets">
+                  <span class="my-ticket-number" v-for="t in tickets" :key="t">#{{ t }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <p v-else class="empty-text">You haven't entered any raffles yet. Check out active raffles to get started!</p>
+        </div>
       </div>
 
     </div>
@@ -274,182 +337,151 @@ const handleLogout = async () => {
 </template>
 
 <style scoped>
-.profile{
-  display: flex;
-  width: 100%;
-  background-color: #0B1220;
-  padding: 40px;
+.profile-page {
+  padding: 0 0 40px;
 }
-.profile-card{
-  background-color: #16263A;
-  border-radius: 12px;
-  padding: 40px;
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  height: fit-content;
-}
-.profile-title{
-  color:#F5C842;
-  font-size: 24px;
-  margin-bottom: 24px;
-  background-color: transparent;
-}
-/* Error Banner for global errors */
-.error-banner{
-  background-color: rgba(255, 107, 107, 0.15);
-  border: 1px solid #ff6b6b;
-  color: #ff6b6b;
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-.profile-body{
-  display: flex;
-  gap: 40px;
-  align-items: flex-start;
-  padding: 40px 0px;
-  border-radius: 12px;
-}
-.profile-left{
+.profile-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap:12px;
+  gap: 24px;
+  padding: 0 60px;
 }
-.profile-image{
-  width: 150px;
-  height:150px;
+.profile-card {
+  background-color: #16263A;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.section-title {
+  color: #E6EDF3;
+  font-size: 18px;
+}
+.avatar-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.profile-avatar {
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #F5C842;
+  border: 2px solid rgba(255, 255, 255, 0.1);
 }
-/* Change Avatar Button */
-.upload-btn{
-  color: #F5C842;
+.upload-btn {
+  background-color: #0B1220;
+  color: #E6EDF3;
+  padding: 8px 16px;
+  border-radius: 8px;
   font-size: 13px;
-  font-weight: 500;
   cursor: pointer;
-  padding: 6px 12px;
-  border: 1px solid #F5C842;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.2s;
 }
 .upload-btn:hover {
-  background-color: rgba(245, 200, 66, 0.1);
+  background-color: #1e3a5f;
 }
-.profile-info{
-  flex: 1;
-  display:flex;
+.profile-form, .password-form, .application-form {
+  display: flex;
   flex-direction: column;
   gap: 16px;
 }
-.profile-field{
+.profile-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.profile-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.profile-label{
-  color:#6a849e;;
+.profile-label {
+  color: #6a849e;
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
-.profile-input{
+.profile-input {
   background-color: #0B1220;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 10px 14px;
   color: #E6EDF3;
-  outline: none;
-  transition: border 0.2s ease;
-  max-width: 300px;
-  font-size: 16px;
-  font-family: inherit;
-  display: block; /* makes span behave the same as input */
-}
-.profile-input:focus{
-  border: 1px solid #F5C842;
-}
-/* Red border when validation fails */
-.input-error {
-  border: 1px solid #ff6b6b !important;
-}
-.readonly-field{
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-/* Inline Username Error text */
-.error-text {
-  color: #ff6b6b;
-  font-size: 12px;
-  margin-top: 2px;
-}
-.profile-bio{
-  resize: none;
-  height: 80px;
-  max-width: 100%;
-  min-height: 250px;
-  max-height: fit-content;
-}
-.profile-actions{
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
-  background-color: transparent;
-}
-.save-btn{
-  background-color:#F5C842;
-  color: #0B1220;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 24px;
   font-size: 14px;
-  font-weight: 500;
-  cursor:pointer;
-  transition:background 0.2s ease;
-  min-width: 80px;
 }
-.save-btn:hover:not(:disabled){
-  background-color: #e6b800;
-}
-.save-btn:disabled {
+.profile-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-/* Subtle style for Cancel so it doesn't fight with Save */
-.cancel-btn {
-  background-color: transparent;
-  color: #E6EDF3;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 80px;
+.profile-bio {
+  resize: vertical;
+  min-height: 80px;
 }
-.cancel-btn:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.05);
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
 }
-.cancel-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.logout-btn{
-  background-color: transparent;
-  color: #ff6b6b;
-  border: 1px solid #ff6b6b;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: 80px;
-}
-.logout-btn:hover{
-  background-color: #ff6b6b;
+.save-btn {
+  background-color: #F5C842;
   color: #0B1220;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.save-btn:hover {
+  background-color: #e6b800;
+}
+.error-banner {
+  background-color: rgba(255, 107, 107, 0.1);
+  color: #ff6b6b;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.success-banner {
+  background-color: rgba(46, 204, 113, 0.1);
+  color: #2ecc71;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.application-status-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: #0B1220;
+  padding: 16px;
+  border-radius: 8px;
+}
+.status-text {
+  color: #E6EDF3;
+  font-size: 15px;
+}
+.badge {
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.badge.pending { background-color: rgba(245, 200, 66, 0.2); color: #F5C842; }
+.badge.approved { background-color: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+.badge.rejected { background-color: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+.submitted-reason {
+  color: #6a849e;
+  font-size: 14px;
+}
+.form-desc {
+  color: #6a849e;
+  font-size: 14px;
+}
+.empty-text {
+  color: #6a849e;
+  font-size: 14px;
 }
 </style>

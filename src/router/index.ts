@@ -12,6 +12,18 @@ const routes = [
     name: 'raffles',
     component: () =>import('../Views/RafflesPage.vue')
   },
+  {
+    path: '/admin/dashboard',
+    name: 'AdminDashboard',
+    component: () => import('../Views/AdminDashboard.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/admin/create-raffle',
+    name: 'CreateRaffle',
+    component: () => import('../Views/CreateRaffleView.vue'),
+    meta: { requiresAuth: true }
+  },
   { path: '/login',
     name: 'login',
     component: () =>import('../Views/LoginPage.vue'),
