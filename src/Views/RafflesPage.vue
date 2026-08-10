@@ -8,16 +8,31 @@
 
   const router = useRouter()
 
-  // tracks which raffle is open in  the overlay
+  // Live timer state (updates every second)
+  const now = ref(new Date().getTime())
+  let timerId: number | null = null
+
+  onMounted(() => {
+    timerId = window.setInterval(() => {
+      now.value = new Date().getTime()
+    }, 1000)
+  })
+
+  onUnmounted(() => {
+    if (timerId) clearInterval(timerId)
+  })
+
+  // tracks which raffle is open in the overlay
   const selectedRaffle = ref<Raffle | null>(null)
 
-    const openOverlay = (raffle: Raffle) => {
-      selectedRaffle.value = raffle
-    }
+  const openOverlay = (raffle: Raffle) => {
+    selectedRaffle.value = raffle
+  }
 
-    const closeOverlay = () => {
+  const closeOverlay = () => {
     selectedRaffle.value = null
   }
+
   // returns the ticket numbers the user owns for a given raffle, or empty array
   const getMyTickets = (raffleId: number) => {
     return myTickets[raffleId] || []
@@ -29,14 +44,23 @@
       router.push('/login')
       return
     }
-    // this will call the backend to purchase a ticket
     console.log('entering raffle', raffle.id)
   }
 
-  // raffle date calculation
-  const daysLeft = (endDate:string) => {
-    const diff = new Date(endDate).getTime() - new Date().getTime()
-    return Math.max(0, Math.ceil(diff / ( 1000 * 60 * 60 * 24 )))
+  // Live countdown calculation
+  const getTimeRemaining = (endDate: string) => {
+    const diff = new Date(endDate).getTime() - now.value
+    if (diff <= 0) return 'Ended'
+
+    const seconds = Math.floor((diff / 1000) % 60)
+    const minutes = Math.floor((diff / 1000 / 60) % 60)
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24)
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m ${seconds}s`
+    }
+    return `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
   }
 
   // raffle progress bar
@@ -44,7 +68,7 @@
     return Math.round((sold/total) * 100)
   }
 
-  //pagination
+  // pagination
   const currentPage = ref(1)
   const perPage = 6 // 3 columns x 2 rows
   const totalPages = computed (() => Math.ceil(mockRaffles.length / perPage))
@@ -84,7 +108,7 @@
 
           <div class="raffle-footer">
             <span class="raffle-price">£{{ raffle.ticketPrice}} / per ticket</span>
-            <span class="raffle-days">{{ daysLeft(raffle.endDate)}} days left</span>
+            <span class="raffle-days">{{ getTimeRemaining(raffle.endDate) }}</span>
           </div>
 
           <button class="raffle-btn" @click.stop="handleEnter(raffle)">
@@ -115,7 +139,7 @@
             <i class="fa-solid fa-xmark"></i>
           </button>
           <!-- image -->
-          <img class="overlay-image" :src="selectedRaffle.image" alt="selectedRaffle.title"/>
+          <img class="overlay-image" :src="selectedRaffle.image" :alt="selectedRaffle.title"/>
           <!-- details -->
           <div class="overlay-body">
             <h2 class="overlay-title">{{ selectedRaffle.title}}</h2>
@@ -134,9 +158,9 @@
                 <span class="overlay-info-label">Draw Date</span>
                 <span class="overlay-info-value">{{ selectedRaffle.drawDate }}</span>
               </div>
-                <div class="overlay-info-item">
-                <span class="overlay-info-label">Days Left</span>
-                <span class="overlay-info-value">{{ daysLeft(selectedRaffle.endDate) }}</span>
+               <div class="overlay-info-item">
+                <span class="overlay-info-label">Time Remaining</span>
+                <span class="overlay-info-value">{{ getTimeRemaining(selectedRaffle.endDate) }}</span>
               </div>
             </div>
 
@@ -188,6 +212,7 @@
 </template>
 
 <style>
+  /* Keep your existing style rules below */
   .raffles{
     padding: 0 0 40px;
   }
@@ -218,6 +243,9 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: transform 0.2s ease;
     margin: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
   .raffle-card:hover{
     transform: translateY(-4px);
@@ -266,14 +294,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0px 20px;
+    padding: 0px 20px 10px 20px;
   }
   .raffle-price{
     color: #F5C842;
   }
   .raffle-days{
-    color:  #FF6B6B;
+    color: #FF6B6B;
     font-size: 12px;
+    font-weight: 500;
   }
   .raffle-btn{
     background-color:#F5C842;
@@ -287,8 +316,7 @@
     transition: background 0.2s ease;
     margin: 20px;
   }
-  .raffle-btn:hover
-  {
+  .raffle-btn:hover {
     background-color:#e6b800;
   }
   .pagination{
@@ -460,5 +488,6 @@
     width: 100%;
     padding: 14px;
     font-size: 16px;
+    margin: 0;
   }
 </style>
