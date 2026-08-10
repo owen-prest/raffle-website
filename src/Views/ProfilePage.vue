@@ -218,7 +218,6 @@ const handleLogout = async () => {
 <template>
   <div class="profile">
     <div class="profile-card">
-
       <h1 class="profile-title">Hello {{ username }}!</h1>
 
       <!-- Error banner for general failures -->
@@ -248,16 +247,19 @@ const handleLogout = async () => {
         </div>
 
         <div class="profile-info">
-          <div class="profile-field">
-            <label class="profile-label">Your Username</label>
+          <div class="profile-row">
+            <div class="profile-field">
+            <label class="profile-label">Username</label>
             <input v-if="isEditing" v-model="username" @input="usernameError = ''" class="profile-input" :class="{ 'input-error': usernameError }" type="text"/>
             <span v-else class="profile-input">{{ username }}</span>
             <span v-if="usernameError && isEditing" class="error-text">{{ usernameError }}</span>
           </div>
           <div class="profile-field">
-            <label class="profile-label">Your Email</label>
+            <label class="profile-label">Email</label>
             <span class="profile-input readonly-field">{{ email }}</span>
           </div>
+          </div>
+
           <div class="profile-field">
             <label class="profile-label">Bio</label>
             <textarea  v-if="isEditing" v-model="bio" class="profile-input profile-bio"></textarea>
@@ -280,206 +282,231 @@ const handleLogout = async () => {
       </div>
 
     </div>
+    <div class="profile-card activity-card">
+      <h2 class="section-title">Recent Activity & Tickets</h2>
+      <div class="activity-content">
+        <p class="empty-text">You haven't entered any raffles yet. Check out the active raffles to get started!</p>
+      </div>
+    </div>
   </div>
+
 </template>
 
 <style scoped>
-.profile{
-  display: flex;
-  width: 100%;
-  background-color: #0B1220;
-  padding: 40px;
-}
-.profile-card{
-  position: relative;
-  background-color: #16263A;
-  border-radius: 12px;
-  padding: 40px;
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  height: fit-content;
-}
-.profile-title{
-  color:#F5C842;
-  font-size: 24px;
-  margin-bottom: 24px;
-  background-color: transparent;
-}
-/* Floating Toast Banners*/
-.error-banner{
-  position: absolute;
-  top: 30px;
-  right: 40px;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  background-color: rgba(255, 107, 107, 0.15);
-  border: 1px solid #ff6b6b;
-  color: #ff6b6b;
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-.success-banner {
-  position: absolute;
-  top: 30px;
-  right: 40px;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  background-color: rgba(46, 204, 113, 0.15);
-  border: 1px solid #2ecc71;
-  color: #2ecc71;
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-.profile-body{
-  display: flex;
-  gap: 40px;
-  align-items: flex-start;
-  padding: 40px 0px;
-  border-radius: 12px;
-}
-.profile-left{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap:12px;
-}
-.profile-image{
-  width: 150px;
-  height:150px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #F5C842;
-}
-/* Change Avatar Button */
-.upload-btn{
-  color: #F5C842;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 6px 12px;
-  border: 1px solid #F5C842;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
-.upload-btn:hover {
-  background-color: rgba(245, 200, 66, 0.1);
-}
-.profile-info{
-  flex: 1;
-  display:flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.profile-field{
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.profile-label{
-  color:#6a849e;;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.profile-input{
-  background-color: #0B1220;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 10px 14px;
-  color: #E6EDF3;
-  outline: none;
-  transition: border 0.2s ease;
-  max-width: 300px;
-  font-size: 16px;
-  font-family: inherit;
-  display: block; /* makes span behave the same as input */
-}
-.profile-input:focus{
-  border: 1px solid #F5C842;
-}
-/* Red border when validation fails */
-.input-error {
-  border: 1px solid #ff6b6b !important;
-}
-.readonly-field{
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-/* Inline Username Error text */
-.error-text {
-  color: #ff6b6b;
-  font-size: 12px;
-  margin-top: 2px;
-}
-.profile-bio{
-  resize: none;
-  height: 80px;
-  max-width: 100%;
-  min-height: 250px;
-  max-height: fit-content;
-}
-.profile-actions{
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
-  background-color: transparent;
-}
-.save-btn{
-  background-color:#F5C842;
-  color: #0B1220;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor:pointer;
-  transition:background 0.2s ease;
-  min-width: 80px;
-}
-.save-btn:hover:not(:disabled){
-  background-color: #e6b800;
-}
-.save-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-/* Subtle style for Cancel so it doesn't fight with Save */
-.cancel-btn {
-  background-color: transparent;
-  color: #E6EDF3;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 80px;
-}
-.cancel-btn:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-.cancel-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.logout-btn{
-  background-color: transparent;
-  color: #ff6b6b;
-  border: 1px solid #ff6b6b;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: 80px;
-}
-.logout-btn:hover{
-  background-color: #ff6b6b;
-  color: #0B1220;
-}
+  .profile{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background-color: #0B1220;
+    padding: 40px;
+    gap:30px;
+  }
+  .profile-card{
+    position: relative;
+    background-color: #16263A;
+    border-radius: 12px;
+    padding: 40px;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    height: fit-content;
+  }
+  .profile-title{
+    color:#F5C842;
+    font-size: 24px;
+    margin-bottom: 24px;
+    background-color: transparent;
+  }
+  .section-title{
+    color:#F5C842;
+    font-size: 18px;
+    margin-bottom: 16px;
+    background-color: transparent;
+  }
+  .empty-text{
+    color:#6a849e;
+    font-size: 14px;
+  }
+  /* Floating Toast Banners*/
+  .error-banner{
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    background-color: rgba(255, 107, 107, 0.15);
+    border: 1px solid #ff6b6b;
+    color: #ff6b6b;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .success-banner {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    background-color: rgba(46, 204, 113, 0.15);
+    border: 1px solid #2ecc71;
+    color: #2ecc71;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .profile-body{
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    padding: 20px 0px;
+    border-radius: 12px;
+  }
+  .profile-left{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap:12px;
+  }
+  .profile-image{
+    width: 150px;
+    height:150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #F5C842;
+  }
+  /* Change Avatar Button */
+  .upload-btn{
+    color: #F5C842;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 6px 12px;
+    border: 1px solid #F5C842;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+  .upload-btn:hover {
+    background-color: rgba(245, 200, 66, 0.1);
+  }
+  .profile-info{
+    flex: 1;
+    display:flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .profile-row{
+    display: flex;
+    gap: 20px;
+  }
+  .profile-field{
+    flex: 1;
+    display:flex;
+    flex-direction: column;
+    gap:6px;
+  }
+  .profile-label{
+    color:#6a849e;;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .profile-input{
+    background-color: #0B1220;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #E6EDF3;
+    outline: none;
+    transition: border 0.2s ease;
+    width: 100%;
+    font-size: 16px;
+    font-family: inherit;
+    display: block; /* makes span behave the same as input */
+  }
+  .profile-input:focus{
+    border: 1px solid #F5C842;
+  }
+  /* Red border when validation fails */
+  .input-error {
+    border: 1px solid #ff6b6b !important;
+  }
+  .readonly-field{
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  /* Inline Username Error text */
+  .error-text {
+    color: #ff6b6b;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .profile-bio{
+    resize: none;
+    height: 100px;
+    min-height: 100px;
+    width: 100%;
+  }
+  .profile-actions{
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    background-color: transparent;
+  }
+  .save-btn{
+    background-color:#F5C842;
+    color: #0B1220;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor:pointer;
+    transition:background 0.2s ease;
+    min-width: 80px;
+  }
+  .save-btn:hover:not(:disabled){
+    background-color: #e6b800;
+  }
+  .save-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  /* Subtle style for Cancel so it doesn't fight with Save */
+  .cancel-btn {
+    background-color: transparent;
+    color: #E6EDF3;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 80px;
+  }
+  .cancel-btn:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  .cancel-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .logout-btn{
+    background-color: transparent;
+    color: #ff6b6b;
+    border: 1px solid #ff6b6b;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 80px;
+  }
+  .logout-btn:hover{
+    background-color: #ff6b6b;
+    color: #0B1220;
+  }
 </style>
