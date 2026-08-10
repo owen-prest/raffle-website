@@ -3,10 +3,12 @@
   import { useRouter } from 'vue-router'
   import { mockRaffles } from '@/data/mockRaffles'
   import type { Raffle } from '@/data/mockRaffles'
-  import { myTickets } from '@/data/myTickets'
-  import { isLoggedIn } from '@/stores/auth'
+  import { useAuth } from '@/composables/useAuth'
+  import { userTicketStore } from '@/stores/userTickets'
 
   const router = useRouter()
+  const { user } = useAuth()
+  const isLoggedIn = computed(() => !!user.value)
 
   // Live timer state (updates every second)
   const now = ref(new Date().getTime())
@@ -22,7 +24,7 @@
     if (timerId) clearInterval(timerId)
   })
 
-  // tracks which raffle is open in the overlay
+  // Tracks which raffle is open in the overlay
   const selectedRaffle = ref<Raffle | null>(null)
 
   const openOverlay = (raffle: Raffle) => {
@@ -33,14 +35,14 @@
     selectedRaffle.value = null
   }
 
-  // returns the ticket numbers the user owns for a given raffle, or empty array
+  // Returns the ticket numbers the user owns for a given raffle
   const getMyTickets = (raffleId: number) => {
-    return myTickets[raffleId] || []
+    return userTicketStore[raffleId] || []
   }
 
-  // handles the enter raffle button, redirects if not logged in
+  // Handles the enter raffle button, redirects if not logged in
   const handleEnter = (raffle: Raffle) => {
-    if (!isLoggedIn.value){
+    if (!isLoggedIn.value) {
       router.push('/login')
       return
     }
@@ -63,22 +65,38 @@
     return `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
   }
 
-  // raffle progress bar
-  const percentSold = (sold:number, total:number) => {
-    return Math.round((sold/total) * 100)
+  // Check if raffle is within the 15-minute post-end grace period
+  const isDrawInProgress = (endDate: string) => {
+    const endTime = new Date(endDate).getTime()
+    const gracePeriod = 15 * 60 * 1000
+    return now.value > endTime && now.value <= endTime + gracePeriod
   }
 
-  // pagination
+  // Filter out raffles that ended more than 15 minutes ago
+  const activeRaffles = computed(() => {
+    const gracePeriod = 15 * 60 * 1000
+    return mockRaffles.filter(raffle => {
+      const endTime = new Date(raffle.endDate).getTime()
+      return now.value <= endTime + gracePeriod
+    })
+  })
+
+  // Raffle progress bar
+  const percentSold = (sold: number, total: number) => {
+    return Math.round((sold / total) * 100)
+  }
+
+  // Pagination
   const currentPage = ref(1)
   const perPage = 6 // 3 columns x 2 rows
-  const totalPages = computed (() => Math.ceil(mockRaffles.length / perPage))
+  const totalPages = computed(() => Math.ceil(activeRaffles.value.length / perPage))
 
   const paginatedRaffles = computed(() => {
     const start = (currentPage.value - 1) * perPage
-    return mockRaffles.slice(start, start + perPage)
+    return activeRaffles.value.slice(start, start + perPage)
   })
 
-  const goToPage = (page:number) => {
+  const goToPage = (page: number) => {
     currentPage.value = page
   }
 </script>
@@ -93,7 +111,6 @@
           <img class="raffle-image" :src="raffle.image" :alt="raffle.title"/>
 
           <div class="raffle-body">
-
             <h2 class="raffle-title">{{ raffle.title }}</h2>
             <p class="raffle-prize">{{ raffle.prize }}</p>
 
@@ -103,7 +120,6 @@
               </div>
               <span class="progress-text">{{ raffle.ticketsSold}} / {{ raffle.ticketsTotal }} tickets sold</span>
             </div>
-
           </div>
 
           <div class="raffle-footer">
@@ -111,10 +127,14 @@
             <span class="raffle-days">{{ getTimeRemaining(raffle.endDate) }}</span>
           </div>
 
-          <button class="raffle-btn" @click.stop="handleEnter(raffle)">
-            {{ isLoggedIn ? 'Enter Raffle' : 'Login to Enter'}}
+          <button
+            class="raffle-btn"
+            @click.stop="handleEnter(raffle)"
+            :disabled="isDrawInProgress(raffle.endDate)"
+            :class="{ 'disabled-btn': isDrawInProgress(raffle.endDate) }"
+          >
+            {{ !isLoggedIn ? 'Login to Enter' : (isDrawInProgress(raffle.endDate) ? 'Draw in Progress 🎲' : 'Enter Raffle') }}
           </button>
-
         </div>
       </div>
     </Transition>
@@ -126,24 +146,25 @@
         :class="['page-btn', {active: page === currentPage}]"
         @click="goToPage(page)"
       >
-      {{ page }}
-    </button>
+        {{ page }}
+      </button>
     </div>
 
     <Transition name="fade">
       <div class="overlay-backdrop" v-if="selectedRaffle" @click.self="closeOverlay">
         <div class="overlay-card no-scrollbar">
-
           <!-- close button -->
           <button class="overlay-close" @click="closeOverlay">
             <i class="fa-solid fa-xmark"></i>
           </button>
+
           <!-- image -->
           <img class="overlay-image" :src="selectedRaffle.image" :alt="selectedRaffle.title"/>
+
           <!-- details -->
           <div class="overlay-body">
-            <h2 class="overlay-title">{{ selectedRaffle.title}}</h2>
-            <p class="overlay-prize">🏆 Prize: {{ selectedRaffle.prize}}</p>
+            <h2 class="overlay-title">{{ selectedRaffle.title }}</h2>
+            <p class="overlay-prize">🏆 Prize: {{ selectedRaffle.prize }}</p>
 
             <div class="overlay-info-grid">
               <div class="overlay-info-item">
@@ -154,11 +175,11 @@
                 <span class="overlay-info-label">Total Entrants</span>
                 <span class="overlay-info-value">{{ selectedRaffle.entrants }}</span>
               </div>
-               <div class="overlay-info-item">
+              <div class="overlay-info-item">
                 <span class="overlay-info-label">Draw Date</span>
                 <span class="overlay-info-value">{{ selectedRaffle.drawDate }}</span>
               </div>
-               <div class="overlay-info-item">
+              <div class="overlay-info-item">
                 <span class="overlay-info-label">Time Remaining</span>
                 <span class="overlay-info-value">{{ getTimeRemaining(selectedRaffle.endDate) }}</span>
               </div>
@@ -200,10 +221,14 @@
               </div>
             </div>
 
-            <button class="raffle-btn overlay-enter-btn" @click="handleEnter(selectedRaffle)">
-              {{ isLoggedIn ? 'Enter Raffle' : 'Login to Enter' }}
+            <button
+              class="raffle-btn overlay-enter-btn"
+              @click="handleEnter(selectedRaffle)"
+              :disabled="isDrawInProgress(selectedRaffle.endDate)"
+              :class="{ 'disabled-btn': isDrawInProgress(selectedRaffle.endDate) }"
+            >
+              {{ !isLoggedIn ? 'Login to Enter' : (isDrawInProgress(selectedRaffle.endDate) ? 'Draw in Progress 🎲' : 'Enter Raffle') }}
             </button>
-
           </div>
         </div>
       </div>
@@ -212,7 +237,6 @@
 </template>
 
 <style>
-  /* Keep your existing style rules below */
   .raffles{
     padding: 0 0 40px;
   }
@@ -316,8 +340,14 @@
     transition: background 0.2s ease;
     margin: 20px;
   }
-  .raffle-btn:hover {
+  .raffle-btn:hover:not(:disabled) {
     background-color:#e6b800;
+  }
+  .disabled-btn {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #6a849e !important;
+    color: #E6EDF3 !important;
   }
   .pagination{
     display: flex;
