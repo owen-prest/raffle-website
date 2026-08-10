@@ -1,6 +1,6 @@
 // src/router/index.ts
 import { createRouter, createWebHistory } from 'vue-router'
-import {useAuth} from '../composables/useAuth'
+import { supabase } from '@/supabase'
 
 /* Web Pages */
 const routes = [
@@ -45,9 +45,9 @@ const router = createRouter({
 })
 
 // Navigation guard
-router.beforeEach((to) => {
-  const { user } = useAuth()
-  const isAuthenticated = !!user.value
+router.beforeEach(async (to) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  const isAuthenticated = !!session
 
   // 1. Protected routes check
   if (to.meta.requiresAuth && !isAuthenticated) {
