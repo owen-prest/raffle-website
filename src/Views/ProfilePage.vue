@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { supabase } from '@/supabase'
 import { userTicketStore } from '@/stores/userTickets'
 import placeholder from '@/assets/images/placeholder.webp'
 
-const router = useRouter()
-const { user, profile, loading: authLoading, fetchProfile } = useAuth()
+const { user } = useAuth()
+const loading = ref(true)
 
 // Profile Form States
 const username = ref('')
@@ -32,14 +31,36 @@ const existingApplication = ref<{ status: string; reason: string } | null>(null)
 const adminMessage = ref('')
 const adminError = ref('')
 
-onMounted(async () => {
-  await fetchProfile()
-  if (profile.value) {
-    username.value = profile.value.username || ''
-    fullName.value = profile.value.full_name || ''
-    avatarUrl.value = profile.value.avatar_url || placeholder
+const fetchProfileData = async () => {
+  try {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    if (!authUser) return
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single()
+
+    if (error) throw error
+    if (data) {
+      username.value = data.username || ''
+      fullName.value = data.full_name || ''
+      avatarUrl.value = data.avatar_url || placeholder
+    }
+  } catch (err) {
+    console.error('Error fetching profile:', err)
   }
-  await fetchApplicationStatus()
+}
+
+onMounted(async () => {
+  try {
+    loading.value = true
+    await fetchProfileData()
+    await fetchApplicationStatus()
+  } finally {
+    loading.value = false
+  }
 })
 
 // Fetch Admin Application Status
@@ -122,7 +143,11 @@ const uploadAvatar = async (event: Event) => {
     avatarUrl.value = publicUrlData.publicUrl + '?t=' + new Date().getTime()
   } catch (err: unknown) {
     console.error('Error uploading avatar:', err)
-    errorMessage.value = 'Failed to upload avatar.'
+    if (err && typeof err === 'object' && 'message' in err) {
+      errorMessage.value = `Upload Error: ${(err as { message: string }).message}`
+    } else {
+      errorMessage.value = 'Failed to upload avatar.'
+    }
   } finally {
     uploading.value = false
   }
@@ -148,7 +173,7 @@ const updateProfile = async () => {
     if (error) throw error
 
     successMessage.value = 'Profile updated successfully!'
-    await fetchProfile()
+    await fetchProfileData()
   } catch (err: unknown) {
     console.error('Error updating profile:', err)
     if (err && typeof err === 'object' && 'message' in err) {
@@ -213,7 +238,7 @@ const handleChangePassword = async () => {
   <div class="profile-page">
     <h1 class="home-title">Account Settings</h1>
 
-    <div v-if="authLoading" class="loading-state">Loading profile...</div>
+    <div v-if="loading" class="loading-state">Loading profile...</div>
 
     <div v-else class="profile-container">
 

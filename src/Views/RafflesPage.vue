@@ -343,7 +343,7 @@
     padding: 20px 60px;
   }
   .home-title{
-    color: #E6EDF3;
+    color: #f5c842;
     padding: 0;
   }
   .admin-actions-bar {

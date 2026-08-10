@@ -185,10 +185,12 @@ onMounted(() => {
 </template>
 
 <style scoped>
- .home-title{
-    color: #E6EDF3;
-    padding: 0;
-  }
+.home-title {
+  color: #f5c842;
+  font-size: 32px;
+  margin-bottom: 20px;
+  padding:20px 60px;
+}
 .create-raffle-page {
   padding: 0 0 40px;
 }
