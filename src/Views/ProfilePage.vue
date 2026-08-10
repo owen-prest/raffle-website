@@ -20,6 +20,7 @@ const isSaving = ref(false)
 const isUploading = ref(false)
 const usernameError = ref('')
 const errorMessage = ref('')
+const successMessage = ref('')
 
 // Load existing profile from Supabase 'profiles' table
 const loadProfile = async () => {
@@ -184,6 +185,11 @@ const handleSave = async () => {
 
     // Exit edit mode on success
     isEditing.value = false
+    successMessage.value = 'Profile updated successfully!'
+    setTimeout(() => {
+      successMessage.value = ''
+    }, 3000) // Clear success message after 3 seconds
+
   } catch (err: unknown) {
     console.error('Error saving profile:', err)
 
@@ -218,6 +224,10 @@ const handleLogout = async () => {
       <!-- Error banner for general failures -->
       <div v-if="errorMessage" class="error-banner">
         {{ errorMessage }}
+      </div>
+      <!-- Success banner for saved changes -->
+      <div v-if="successMessage" class="success-banner">
+        {{ successMessage }}
       </div>
 
       <div class="profile-body">
@@ -281,6 +291,7 @@ const handleLogout = async () => {
   padding: 40px;
 }
 .profile-card{
+  position: relative;
   background-color: #16263A;
   border-radius: 12px;
   padding: 40px;
@@ -294,11 +305,30 @@ const handleLogout = async () => {
   margin-bottom: 24px;
   background-color: transparent;
 }
-/* Error Banner for global errors */
+/* Floating Toast Banners*/
 .error-banner{
+  position: absolute;
+  top: 30px;
+  right: 40px;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   background-color: rgba(255, 107, 107, 0.15);
   border: 1px solid #ff6b6b;
   color: #ff6b6b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+.success-banner {
+  position: absolute;
+  top: 30px;
+  right: 40px;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background-color: rgba(46, 204, 113, 0.15);
+  border: 1px solid #2ecc71;
+  color: #2ecc71;
   padding: 10px 14px;
   border-radius: 8px;
   margin-bottom: 20px;
