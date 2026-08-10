@@ -16,7 +16,9 @@
   <div v-else class="layout">
     <SideNav />
     <main class="main no-scrollbar">
-      <router-view />
+      <div class="content-wrap">
+        <router-view />
+      </div>
       <AppFooter />
     </main>
   </div>
@@ -25,20 +27,28 @@
 <style>
   /* Resets default browser margins & padding*/
   *{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
   body{
     background-color: #0B1220;
   }
   .layout{
-    display:flex; height:100vh; overflow: visible;
+    display: flex;
+    height: 100vh;
+    overflow: visible;
   }
   .main{
-    flex:1;
-    overflow-y:auto;
+    flex: 1;
+    overflow-y: auto;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  .content-wrap {
+    flex: 1;
   }
   /* Loading Overlay Styles */
   .loading-screen {

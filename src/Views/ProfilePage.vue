@@ -22,6 +22,14 @@ const usernameError = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
 
+// Password State
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordError = ref('')
+const passwordSuccess = ref('')
+const isUpdatingPassword = ref(false)
+
+
 // Load existing profile from Supabase 'profiles' table
 const loadProfile = async () => {
   if (!user.value) return
@@ -130,6 +138,58 @@ const handleCancel = () => {
   errorMessage.value = ''
   isEditing.value = false
   loadProfile() // Reloads latest DB values, reverting username, bio, and unsaved avatar uploads
+}
+
+const handleChangePassword = async () => {
+  passwordError.value = ''
+  passwordSuccess.value = ''
+  const hasUpperCase = /[A-Z]/.test(newPassword.value)
+  const hasLowerCase = /[a-z]/.test(newPassword.value)
+  const hasNumber = /[0-9]/.test(newPassword.value)
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword.value)
+
+  if (!newPassword.value || !confirmPassword.value) {
+    passwordError.value = 'Please fill in both password fields.'
+    return
+  }
+  if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecialChar) {
+    passwordError.value = 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.'
+    return
+  }
+  if (newPassword.value.length < 6) {
+    passwordError.value = 'Password must be at least 6 characters long.'
+    return
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    passwordError.value = 'Passwords do not match.'
+    return
+  }
+
+  try {
+    isUpdatingPassword.value = true
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword.value
+    })
+
+    if (error) throw error
+
+    passwordSuccess.value = 'Password updated successfully!'
+    newPassword.value = ''
+    confirmPassword.value = ''
+
+    setTimeout(() => {
+      passwordSuccess.value = ''
+    }, 3000) // Clear success message after 3 seconds
+  } catch (err: unknown) {
+    console.error('Error updating password:', err)
+    if (err && typeof err === 'object' && 'message' in err) {
+      passwordError.value = (err as { message: string }).message
+    } else {
+      passwordError.value = 'Failed to update password.'
+    }
+  } finally {
+    isUpdatingPassword.value = false
+  }
 }
 
 // Validate unique username & save changes
@@ -281,6 +341,31 @@ const handleLogout = async () => {
         <button class="logout-btn" @click="handleLogout">Logout</button>
       </div>
 
+    </div>
+    <!-- Security Card: Change Password -->
+    <div class="profile-card security-card">
+      <h2 class="section-title">Change Password</h2>
+
+      <div v-if="passwordError" class="error-banner">{{ passwordError }}</div>
+      <div v-if="passwordSuccess" class="success-banner">{{ passwordSuccess }}</div>
+
+      <div class="password-form">
+        <div class="profile-row">
+          <div class="profile-field">
+            <label class="profile-label">New Password</label>
+            <input v-model="newPassword" class="profile-input" type="password" placeholder="At least 6 characters" />
+          </div>
+          <div class="profile-field">
+            <label class="profile-label">Confirm New Password</label>
+            <input v-model="confirmPassword" class="profile-input" type="password" placeholder="Confirm new password" />
+          </div>
+        </div>
+        <div class="profile-actions">
+          <button class="save-btn" @click="handleChangePassword" :disabled="isUpdatingPassword">
+            {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
+          </button>
+        </div>
+      </div>
     </div>
     <div class="profile-card activity-card">
       <h2 class="section-title">Recent Activity & Tickets</h2>
