@@ -339,10 +339,10 @@
       <h1 class="home-title accent-title">Active Raffles</h1>
       <div v-if="isAdmin" class="admin-actions-bar">
         <router-link to="/admin/create-raffle" class="admin-action-btn">
-          ➕ Create Raffle
+          Create Raffle
         </router-link>
         <router-link to="/admin/dashboard" class="admin-action-btn">
-          🛡️ Admin Dashboard
+          Admin Dashboard
         </router-link>
       </div>
     </div>
@@ -368,7 +368,7 @@
             </div>
 
             <div class="raffle-footer">
-              <span class="raffle-price">£{{ raffle.ticketPrice }} / per ticket</span>
+              <span class="raffle-price">🪙{{ raffle.ticketPrice }} / per ticket</span>
               <span class="raffle-days">{{ getTimeRemaining(raffle.endDate) }}</span>
             </div>
 
@@ -412,7 +412,7 @@
             <div class="overlay-info-grid">
               <div class="overlay-info-item">
                 <span class="overlay-info-label">Ticket Price</span>
-                <span class="overlay-info-value">£{{ selectedRaffle.ticketPrice }}</span>
+                <span class="overlay-info-value">{{ selectedRaffle.ticketPrice }}</span>
               </div>
               <div class="overlay-info-item">
                 <span class="overlay-info-label">Total Entrants</span>
@@ -476,7 +476,7 @@
                 </div>
                 <div class="checkout-total">
                   <span class="overlay-info-label">Total Cost</span>
-                  <span class="total-price-value">£{{ ticketQuantity * selectedRaffle.ticketPrice }}</span>
+                  <span class="total-price-value">🪙{{ ticketQuantity * selectedRaffle.ticketPrice }}</span>
                 </div>
               </div>
 
@@ -485,7 +485,7 @@
                 @click="handlePurchase(selectedRaffle)"
                 :disabled="purchasing"
               >
-                {{ !isLoggedIn ? 'Login to Enter' : (purchasing ? 'Processing... 💳' : `Buy ${ticketQuantity} Ticket(s) (£${ticketQuantity * selectedRaffle.ticketPrice})`) }}
+                {{ !isLoggedIn ? 'Login to Enter' : (purchasing ? 'Processing... 💳' : `Buy ${ticketQuantity} Ticket(s) (🪙${ticketQuantity * selectedRaffle.ticketPrice})`) }}
               </button>
             </div>
 
