@@ -2,8 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { supabase } from '@/supabase'
-import { userTicketStore } from '@/stores/userTickets'
 import placeholder from '@/assets/images/placeholder.webp'
+
+interface TicketGroup {
+  raffleId: number
+  title: string
+  prize: string
+  tickets: number[]
+}
 
 const { user } = useAuth()
 const loading = ref(true)
@@ -31,6 +37,9 @@ const existingApplication = ref<{ status: string; reason: string } | null>(null)
 const adminMessage = ref('')
 const adminError = ref('')
 
+// User Tickets State
+const userTicketGroups = ref<TicketGroup[]>([])
+
 const fetchProfileData = async () => {
   try {
     const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -53,11 +62,48 @@ const fetchProfileData = async () => {
   }
 }
 
+const fetchUserTickets = async () => {
+  if (!user.value) return
+  try {
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('ticket_number, raffle_id, raffles(id, title, prize)')
+      .eq('user_id', user.value.id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    const map: Record<number, { title: string; prize: string; tickets: number[] }> = {}
+    data?.forEach((t: any) => {
+      const rId = t.raffle_id
+      const raffleInfo = t.raffles || { title: `Raffle #${rId}`, prize: '' }
+      if (!map[rId]) {
+        map[rId] = {
+          title: raffleInfo.title,
+          prize: raffleInfo.prize,
+          tickets: []
+        }
+      }
+      map[rId].tickets.push(t.ticket_number)
+    })
+
+    userTicketGroups.value = Object.entries(map).map(([raffleId, val]) => ({
+      raffleId: Number(raffleId),
+      title: val.title,
+      prize: val.prize,
+      tickets: val.tickets
+    }))
+  } catch (err) {
+    console.error('Error fetching user tickets:', err)
+  }
+}
+
 onMounted(async () => {
   try {
     loading.value = true
     await fetchProfileData()
     await fetchApplicationStatus()
+    await fetchUserTickets()
   } finally {
     loading.value = false
   }
@@ -350,12 +396,15 @@ const handleChangePassword = async () => {
       <div class="profile-card activity-card">
         <h2 class="section-title">Recent Activity & Tickets</h2>
         <div class="activity-content">
-          <template v-if="Object.keys(userTicketStore).length > 0">
-            <div class="activity-list" v-for="(tickets, raffleId) in userTicketStore" :key="raffleId">
+          <template v-if="userTicketGroups.length > 0">
+            <div class="activity-list" v-for="group in userTicketGroups" :key="group.raffleId">
               <div class="activity-item">
-                <span class="activity-raffle-name">Raffle #{{ raffleId }}</span>
+                <div class="activity-raffle-info">
+                  <span class="activity-raffle-name">{{ group.title }}</span>
+                  <span class="activity-raffle-prize" v-if="group.prize">🏆 {{ group.prize }}</span>
+                </div>
                 <div class="activity-tickets">
-                  <span class="my-ticket-number" v-for="t in tickets" :key="t">#{{ t }}</span>
+                  <span class="my-ticket-number" v-for="t in group.tickets" :key="t">#{{ t }}</span>
                 </div>
               </div>
             </div>
@@ -515,5 +564,49 @@ const handleChangePassword = async () => {
 .empty-text {
   color: #6a849e;
   font-size: 14px;
+}
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #0B1220;
+  padding: 14px;
+  border-radius: 8px;
+  gap: 16px;
+}
+.activity-raffle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.activity-raffle-name {
+  color: #E6EDF3;
+  font-weight: 500;
+  font-size: 15px;
+}
+.activity-raffle-prize {
+  color: #6a849e;
+  font-size: 12px;
+}
+.activity-tickets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  max-width: 50%;
+}
+.my-ticket-number {
+  background-color: #F5C842;
+  color: #0B1220;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
 }
 </style>

@@ -4,7 +4,7 @@
   import { supabase } from '@/supabase'
   import { useAuth } from '@/composables/useAuth'
 
-  interface Raffle {
+ interface Raffle {
     id: number
     title: string
     image: string
@@ -16,12 +16,15 @@
     entrants: number
     drawMethod: string
     drawDate: string
+    winnerId?: string
+    winningTicketNumber?: number
+    status?: string
   }
 
   interface TicketRecord {
     raffle_id: number
     ticket_number: number
-    user_id: string
+    user_id?: string // Made optional since queries only fetch raffle_id and ticket_number
   }
 
   const router = useRouter()
@@ -69,7 +72,7 @@
     if (timerId) clearInterval(timerId)
   })
 
-  // Fetch raffles and sold ticket allocations from Supabase
+// Fetch raffles and trigger auto-draw for expired ones
   const fetchRaffles = async () => {
     try {
       loadingRaffles.value = true
@@ -80,7 +83,26 @@
 
       if (error) throw error
 
-      raffles.value = (data || []).map((r: any) => ({
+      const currentTime = new Date().getTime()
+      const gracePeriod = 15 * 60 * 1000
+
+      // Automatically trigger draws for any ended raffles missing a winner
+      for (const r of (data || [])) {
+        const endTime = new Date(r.end_date).getTime()
+        if (currentTime > endTime + gracePeriod && !r.winner_id) {
+          await supabase.rpc('execute_raffle_draw', { target_raffle_id: r.id })
+        }
+      }
+
+      // Re-fetch updated raffles list after potential automated draws
+      const { data: updatedData, error: updateError } = await supabase
+        .from('raffles')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (updateError) throw updateError
+
+      raffles.value = (updatedData || []).map((r: any) => ({
         id: r.id,
         title: r.title,
         image: r.image,
@@ -91,7 +113,10 @@
         endDate: r.end_date,
         entrants: r.entrants,
         drawMethod: r.draw_method,
-        drawDate: r.draw_date
+        drawDate: r.draw_date,
+        winnerId: r.winner_id,
+        winningTicketNumber: r.winning_ticket_number,
+        status: r.status
       }))
 
       // Fetch all sold tickets to map grid availability accurately
