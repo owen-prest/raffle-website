@@ -177,7 +177,14 @@ const updateProfile = async () => {
   } catch (err: unknown) {
     console.error('Error updating profile:', err)
     if (err && typeof err === 'object' && 'message' in err) {
-      errorMessage.value = (err as { message: string }).message
+      const msg = (err as { message: string }).message
+      const code = (err as { code?: string }).code
+
+      if (msg.includes('profiles_username_key') || code === '23505') {
+        errorMessage.value = 'This username is already taken. Please choose a different one.'
+      } else {
+        errorMessage.value = msg
+      }
     } else {
       errorMessage.value = 'Failed to update profile.'
     }
