@@ -1,28 +1,109 @@
 <script setup lang="ts">
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
   import { useRouter } from 'vue-router'
-  import { mockRaffles } from '@/data/mockRaffles'
-  import type { Raffle } from '@/data/mockRaffles'
+  import { supabase } from '@/supabase'
   import { useAuth } from '@/composables/useAuth'
   import { userTicketStore } from '@/stores/userTickets'
+
+  interface Raffle {
+    id: number
+    title: string
+    image: string
+    prize: string
+    ticketPrice: number
+    ticketsSold: number
+    ticketsTotal: number
+    endDate: string
+    entrants: number
+    drawMethod: string
+    drawDate: string
+  }
 
   const router = useRouter()
   const { user } = useAuth()
   const isLoggedIn = computed(() => !!user.value)
+  const isAdmin = ref(false)
+
+  const raffles = ref<Raffle[]>([])
+  const loadingRaffles = ref(true)
 
   // Live timer state (updates every second)
   const now = ref(new Date().getTime())
   let timerId: number | null = null
 
-  onMounted(() => {
+  onMounted(async () => {
     timerId = window.setInterval(() => {
       now.value = new Date().getTime()
     }, 1000)
+
+    await fetchRaffles()
+    await checkAdminStatus()
+  })
+
+  // Re-check admin status if user changes
+  watch(user, async () => {
+    await checkAdminStatus()
   })
 
   onUnmounted(() => {
     if (timerId) clearInterval(timerId)
   })
+
+  // Fetch raffles from Supabase
+  const fetchRaffles = async () => {
+    try {
+      loadingRaffles.value = true
+      const { data, error } = await supabase
+        .from('raffles')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      // Map database columns (snake_case) to frontend interface (camelCase)
+      raffles.value = (data || []).map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        image: r.image,
+        prize: r.prize,
+        ticketPrice: r.ticket_price,
+        ticketsSold: r.tickets_sold,
+        ticketsTotal: r.tickets_total,
+        endDate: r.end_date,
+        entrants: r.entrants,
+        drawMethod: r.draw_method,
+        drawDate: r.draw_date
+      }))
+    } catch (err) {
+      console.error('Error fetching raffles:', err)
+    } finally {
+      loadingRaffles.value = false
+    }
+  }
+
+  // Check if current user is an admin
+  const checkAdminStatus = async () => {
+    if (!user.value) {
+      isAdmin.value = false
+      return
+    }
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.value.id)
+        .single()
+
+      if (!error && data?.is_admin) {
+        isAdmin.value = true
+      } else {
+        isAdmin.value = false
+      }
+    } catch (err) {
+      console.error('Error checking admin status:', err)
+      isAdmin.value = false
+    }
+  }
 
   // Tracks which raffle is open in the overlay
   const selectedRaffle = ref<Raffle | null>(null)
@@ -75,7 +156,7 @@
   // Filter out raffles that ended more than 15 minutes ago
   const activeRaffles = computed(() => {
     const gracePeriod = 15 * 60 * 1000
-    return mockRaffles.filter(raffle => {
+    return raffles.value.filter(raffle => {
       const endTime = new Date(raffle.endDate).getTime()
       return now.value <= endTime + gracePeriod
     })
@@ -103,52 +184,67 @@
 
 <template>
   <div class="raffles">
-    <h1 class="home-title">Active Raffles</h1>
-
-    <Transition name="fade" mode="out-in">
-      <div class="raffle-grid" :key="currentPage">
-        <div class="raffle-card" v-for="raffle in paginatedRaffles" :key="raffle.id" @click="openOverlay(raffle)">
-          <img class="raffle-image" :src="raffle.image" :alt="raffle.title"/>
-
-          <div class="raffle-body">
-            <h2 class="raffle-title">{{ raffle.title }}</h2>
-            <p class="raffle-prize">{{ raffle.prize }}</p>
-
-            <div class="raffle-progress">
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: percentSold(raffle.ticketsSold, raffle.ticketsTotal) + '%'}"></div>
-              </div>
-              <span class="progress-text">{{ raffle.ticketsSold}} / {{ raffle.ticketsTotal }} tickets sold</span>
-            </div>
-          </div>
-
-          <div class="raffle-footer">
-            <span class="raffle-price">£{{ raffle.ticketPrice}} / per ticket</span>
-            <span class="raffle-days">{{ getTimeRemaining(raffle.endDate) }}</span>
-          </div>
-
-          <button
-            class="raffle-btn"
-            @click.stop="handleEnter(raffle)"
-            :disabled="isDrawInProgress(raffle.endDate)"
-            :class="{ 'disabled-btn': isDrawInProgress(raffle.endDate) }"
-          >
-            {{ !isLoggedIn ? 'Login to Enter' : (isDrawInProgress(raffle.endDate) ? 'Draw in Progress 🎲' : 'Enter Raffle') }}
-          </button>
-        </div>
+    <div class="header-row">
+      <h1 class="home-title">Active Raffles</h1>
+      <!-- Admin Action Buttons -->
+      <div v-if="isAdmin" class="admin-actions-bar">
+        <router-link to="/admin/create-raffle" class="admin-action-btn">
+          Create Raffle
+        </router-link>
+        <router-link to="/admin/dashboard" class="admin-action-btn">
+          Admin Dashboard
+        </router-link>
       </div>
-    </Transition>
-
-    <div class="pagination" v-if="totalPages > 1">
-      <button
-        v-for="page in totalPages"
-        :key="page"
-        :class="['page-btn', {active: page === currentPage}]"
-        @click="goToPage(page)"
-      >
-        {{ page }}
-      </button>
     </div>
+
+    <div v-if="loadingRaffles" class="loading-state">Loading raffles...</div>
+
+    <template v-else>
+      <Transition name="fade" mode="out-in">
+        <div class="raffle-grid" :key="currentPage">
+          <div class="raffle-card" v-for="raffle in paginatedRaffles" :key="raffle.id" @click="openOverlay(raffle)">
+            <img class="raffle-image" :src="raffle.image" :alt="raffle.title"/>
+
+            <div class="raffle-body">
+              <h2 class="raffle-title">{{ raffle.title }}</h2>
+              <p class="raffle-prize">{{ raffle.prize }}</p>
+
+              <div class="raffle-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: percentSold(raffle.ticketsSold, raffle.ticketsTotal) + '%'}"></div>
+                </div>
+                <span class="progress-text">{{ raffle.ticketsSold}} / {{ raffle.ticketsTotal }} tickets sold</span>
+              </div>
+            </div>
+
+            <div class="raffle-footer">
+              <span class="raffle-price">£{{ raffle.ticketPrice}} / per ticket</span>
+              <span class="raffle-days">{{ getTimeRemaining(raffle.endDate) }}</span>
+            </div>
+
+            <button
+              class="raffle-btn"
+              @click.stop="handleEnter(raffle)"
+              :disabled="isDrawInProgress(raffle.endDate)"
+              :class="{ 'disabled-btn': isDrawInProgress(raffle.endDate) }"
+            >
+              {{ !isLoggedIn ? 'Login to Enter' : (isDrawInProgress(raffle.endDate) ? 'Draw in Progress 🎲' : 'Enter Raffle') }}
+            </button>
+          </div>
+        </div>
+      </Transition>
+
+      <div class="pagination" v-if="totalPages > 1">
+        <button
+          v-for="page in totalPages"
+          :key="page"
+          :class="['page-btn', {active: page === currentPage}]"
+          @click="goToPage(page)"
+        >
+          {{ page }}
+        </button>
+      </div>
+    </template>
 
     <Transition name="fade">
       <div class="overlay-backdrop" v-if="selectedRaffle" @click.self="closeOverlay">
@@ -236,9 +332,38 @@
   </div>
 </template>
 
-<style>
+<style scoped>
   .raffles{
     padding: 0 0 40px;
+  }
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 60px;
+  }
+  .home-title{
+    color: #E6EDF3;
+    padding: 0;
+  }
+  .admin-actions-bar {
+    display: flex;
+    gap: 12px;
+  }
+  .admin-action-btn {
+    background-color: #16263A;
+    color: #F5C842;
+    border: 1px solid rgba(245, 200, 66, 0.3);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .admin-action-btn:hover {
+    background-color: #F5C842;
+    color: #0B1220;
   }
   .raffle-grid{
     display: grid;
@@ -255,10 +380,6 @@
     .raffle-grid {
       grid-template-columns: 1fr;
     }
-  }
-  .home-title{
-    color: #E6EDF3;
-    padding: 20px 60px;
   }
   .raffle-card{
     background-color: #16263A;
@@ -519,5 +640,11 @@
     padding: 14px;
     font-size: 16px;
     margin: 0;
+  }
+  .loading-state {
+    color: #6a849e;
+    text-align: center;
+    padding: 40px;
+    font-size: 15px;
   }
 </style>
