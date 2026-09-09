@@ -28,7 +28,7 @@
   }
 
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, refreshProfile } = useAuth()
   const isLoggedIn = computed(() => !!user.value)
   const isAdmin = ref(false)
 
@@ -203,7 +203,7 @@
     return soldTicketsSet.value[raffleId]?.has(n) || false
   }
 
-  // Handle Ticket Purchase Checkout
+  // Handle Ticket Purchase Checkout via secure RPC function
   const handlePurchase = async (raffle: Raffle) => {
     if (!isLoggedIn.value) {
       router.push('/login')
@@ -222,53 +222,22 @@
     try {
       purchasing.value = true
 
-      // Find available ticket numbers
-      const soldSet = soldTicketsSet.value[raffle.id] || new Set()
-      const availableNumbers: number[] = []
-      for (let i = 1; i <= raffle.ticketsTotal; i++) {
-        if (!soldSet.has(i)) availableNumbers.push(i)
-      }
+      // Call the secure database function to handle balance deduction & ticket allocation
+      const { error } = await supabase.rpc('buy_tickets', {
+        p_raffle_id: raffle.id,
+        p_ticket_count: ticketQuantity.value
+      })
 
-      // Randomly pick N available numbers
-      const chosenNumbers: number[] = []
-      for (let i = 0; i < ticketQuantity.value; i++) {
-        const randomIndex = Math.floor(Math.random() * availableNumbers.length)
-        chosenNumbers.push(availableNumbers.splice(randomIndex, 1)[0])
-      }
-
-      // Insert tickets into Supabase
-      const insertPayload = chosenNumbers.map(num => ({
-        raffle_id: raffle.id,
-        user_id: user.value!.id,
-        ticket_number: num
-      }))
-
-      const { error: ticketError } = await supabase.from('tickets').insert(insertPayload)
-      if (ticketError) throw ticketError
-
-      // Check if user already entered this raffle before
-      const userAlreadyEntered = getMyTickets(raffle.id).length > 0
-      const newEntrantsCount = userAlreadyEntered ? raffle.entrants : raffle.entrants + 1
-      const newTicketsSold = raffle.ticketsSold + ticketQuantity.value
-
-      // Update raffle stats in Supabase
-      const { error: raffleError } = await supabase
-        .from('raffles')
-        .update({
-          tickets_sold: newTicketsSold,
-          entrants: newEntrantsCount
-        })
-        .eq('id', raffle.id)
-
-      if (raffleError) throw raffleError
+      if (error) throw error
 
       purchaseSuccess.value = `Successfully purchased ${ticketQuantity.value} ticket(s)!`
 
-      // Refresh local data
+      // Refresh local data to sync balances, tickets, and stats
       await fetchRaffles()
       await fetchUserTickets()
+      await refreshProfile() // Update user's balance in the global state
 
-      // Keep overlay updated
+      // Keep overlay updated with new counts
       const updatedRaffle = raffles.value.find(r => r.id === raffle.id)
       if (updatedRaffle) selectedRaffle.value = updatedRaffle
 

@@ -1,62 +1,38 @@
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch } from 'vue'
+  import { ref, computed } from 'vue'
   import { RouterLink, useRouter } from 'vue-router'
-  import {useAuth} from '@/composables/useAuth'
-  import { navLinks } from '@/constants/navigation';
-  import { supabase} from '@/supabase'
+  import { useAuth } from '@/composables/useAuth'
+  import { navLinks } from '@/constants/navigation'
 
-  interface NavItem{
-    label: string;
-    icon: string;
-    path: string;
-    // ? means badge is optional - not every nav item needs one
-    badge?:number;
+  interface NavItem {
+    label: string
+    icon: string
+    path: string
+    badge?: number
   }
 
   // reactive states for sidebar collapse
-  const collapsed=ref(false)
-  const userBalance = ref(0)
+  const collapsed = ref(false)
 
   const router = useRouter()
 
-  // access supabase user states
-  const { user, signOut } = useAuth()
+  // Access user states and the centralized global profile from useAuth
+  const { user, profile, signOut } = useAuth()
   const isLoggedIn = computed(() => !!user.value)
 
+  // Automatically reactive balance from the global profile state
+  const userBalance = computed(() => profile.value?.balance ?? 0)
+
   // cast the JS import to our interface to enable TypeScript type-checking
-  const navItems = (navLinks as unknown) as NavItem[];
-
-  // Fetch user currency balance from profiles table
-  const fetchBalance = async () => {
-    if (!user.value) {
-      userBalance.value = 0
-      return
-    }
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', user.value.id)
-        .single()
-
-      if (!error && data) {
-        userBalance.value = data.balance ?? 0
-      }
-    } catch (err) {
-      console.error('Error fetching balance:', err)
-    }
-  }
-
-  onMounted(() => { fetchBalance()  })
-  watch(user, () => { fetchBalance() })
+  const navItems = (navLinks as unknown) as NavItem[]
 
   // handle user logout and redirects
-  const handleLogout = async() => {
+  const handleLogout = async () => {
     try {
-    await signOut()
-    router.push('/login')
+      await signOut()
+      router.push('/login')
     } catch (err) {
-    console.error('Failed to sign out:', err)
+      console.error('Failed to sign out:', err)
     }
   }
 

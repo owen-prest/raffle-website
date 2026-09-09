@@ -19,7 +19,39 @@ const ticketsTotal = ref<number | null>(null)
 const endDate = ref('')
 const drawType = ref('random')
 const socialLink = ref('')
-const imageUrl = ref(placeholder)
+
+// Image Handling state
+const selectedFile = ref<File | null>(null)
+const imagePreview = ref<string>(placeholder)
+
+// Handle local file selection and preview
+const handleFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files[0]) {
+    const file = target.files[0]
+    selectedFile.value = file
+    imagePreview.value = URL.createObjectURL(file)
+  }
+}
+
+// Upload file to Supabase Storage bucket 'raffle-images'
+const uploadRaffleImage = async (file: File): Promise<string> => {
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`
+  const filePath = `${fileName}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('raffle-images')
+    .upload(filePath, file)
+
+  if (uploadError) throw uploadError
+
+  const { data } = supabase.storage
+    .from('raffle-images')
+    .getPublicUrl(filePath)
+
+  return data.publicUrl
+}
 
 // Check admin access on mount
 const checkAdmin = async () => {
@@ -71,10 +103,17 @@ const createRaffle = async () => {
   try {
     submitting.value = true
 
+    // 1. Upload image if a custom file was selected
+    let finalImageUrl = placeholder
+    if (selectedFile.value) {
+      finalImageUrl = await uploadRaffleImage(selectedFile.value)
+    }
+
     // Automatically calculate draw date to be 15 minutes after the end date
     const endDateTimeObj = new Date(endDate.value)
     const drawDateTimeObj = new Date(endDateTimeObj.getTime() + 15 * 60 * 1000)
 
+    // 2. Insert raffle record into database
     const { error } = await supabase.from('raffles').insert({
       title: title.value,
       prize: prize.value,
@@ -85,13 +124,14 @@ const createRaffle = async () => {
       end_date: endDateTimeObj.toISOString(),
       draw_date: drawDateTimeObj.toISOString(),
       draw_method: finalDrawMethod,
-      image: imageUrl.value
+      image: finalImageUrl
     })
 
     if (error) throw error
 
     successMessage.value = 'Raffle created successfully!'
-    // Reset form
+
+    // Reset form fields
     title.value = ''
     prize.value = ''
     ticketPrice.value = null
@@ -99,6 +139,8 @@ const createRaffle = async () => {
     endDate.value = ''
     drawType.value = 'random'
     socialLink.value = ''
+    selectedFile.value = null
+    imagePreview.value = placeholder
   } catch (err: unknown) {
     console.error('Error creating raffle:', err)
     if (err && typeof err === 'object' && 'message' in err) {
@@ -146,7 +188,7 @@ onMounted(() => {
 
           <div class="profile-row">
             <div class="profile-field">
-              <label class="profile-label">Ticket Price (£)</label>
+              <label class="profile-label">Ticket Price (🪙)</label>
               <input v-model.number="ticketPrice" class="profile-input" type="number" min="1" placeholder="5" />
             </div>
             <div class="profile-field">
@@ -158,6 +200,22 @@ onMounted(() => {
           <div class="profile-field">
             <label class="profile-label">End Date & Time (Draw will happen 15 mins after)</label>
             <input v-model="endDate" class="profile-input" type="datetime-local" />
+          </div>
+
+          <!-- Raffle Image Upload Field -->
+          <div class="profile-field">
+            <label class="profile-label">Raffle Image</label>
+            <input
+              class="profile-input file-input"
+              type="file"
+              accept="image/png, image/jpeg, image/webp"
+              @change="handleFileChange"
+            />
+
+            <!-- Live Preview -->
+            <div class="image-preview-wrapper" v-if="imagePreview">
+              <img :src="imagePreview" alt="Image Preview" class="preview-img" />
+            </div>
           </div>
 
           <div class="profile-field">
@@ -240,6 +298,24 @@ onMounted(() => {
   padding: 10px 14px;
   color: #E6EDF3;
   font-size: 14px;
+}
+.file-input {
+  padding: 8px;
+  cursor: pointer;
+}
+.image-preview-wrapper {
+  margin-top: 6px;
+  width: 100%;
+  height: 300px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #0B1220;
+}
+.preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .profile-actions {
   display: flex;
