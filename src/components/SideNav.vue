@@ -1,8 +1,9 @@
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
+  import { ref, computed, onMounted, watch } from 'vue'
   import { RouterLink, useRouter } from 'vue-router'
   import {useAuth} from '@/composables/useAuth'
   import { navLinks } from '@/constants/navigation';
+  import { supabase} from '@/supabase'
 
   interface NavItem{
     label: string;
@@ -12,8 +13,9 @@
     badge?:number;
   }
 
-  // reactive state for sidebar collapse
+  // reactive states for sidebar collapse
   const collapsed=ref(false)
+  const userBalance = ref(0)
 
   const router = useRouter()
 
@@ -24,6 +26,30 @@
   // cast the JS import to our interface to enable TypeScript type-checking
   const navItems = (navLinks as unknown) as NavItem[];
 
+  // Fetch user currency balance from profiles table
+  const fetchBalance = async () => {
+    if (!user.value) {
+      userBalance.value = 0
+      return
+    }
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', user.value.id)
+        .single()
+
+      if (!error && data) {
+        userBalance.value = data.balance ?? 0
+      }
+    } catch (err) {
+      console.error('Error fetching balance:', err)
+    }
+  }
+
+  onMounted(() => { fetchBalance()  })
+  watch(user, () => { fetchBalance() })
+
   // handle user logout and redirects
   const handleLogout = async() => {
     try {
@@ -33,7 +59,6 @@
     console.error('Failed to sign out:', err)
     }
   }
-
 
   const authItem = computed<NavItem>(() =>
     isLoggedIn.value
@@ -79,6 +104,12 @@
         <span class="nav-icon"><i class="fa-solid fa-right-to-bracket"></i></span>
         <span :class="['nav-label', { hidden: collapsed }]">Login</span>
       </router-link>
+    </div>
+
+    <div v-if="isLoggedIn" class="nav-item currency-item">
+      <span class="nav-icon"><i class="fa-solid fa-coins"></i></span>
+      <span :class="['nav-label', { hidden: collapsed }]">Balance</span>
+      <span :class="['currency-amount', { hidden: collapsed }]">🪙 {{ userBalance }}</span>
     </div>
 
     <div class="divider"></div>
@@ -216,6 +247,21 @@
   .logout-item:hover {
     color: #ff6b6b;
     border-left: 3px solid rgba(255, 107, 107, 0.3);
+  }
+  .currency-item {
+    cursor: default;
+  }
+  .currency-item:hover {
+    background: transparent;
+    border-left-color: transparent;
+  }
+  .currency-amount {
+    color: #F5C842;
+    font-weight: 600;
+    font-size: 13px;
+    margin-left: auto;
+    white-space: nowrap;
+    transition: opacity 0.2s ease, width 0.25s ease;
   }
   .nav-icon{
     font-size: 16px;

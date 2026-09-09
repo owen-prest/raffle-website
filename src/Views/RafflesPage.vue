@@ -3,9 +3,8 @@
   import { useRouter } from 'vue-router'
   import { supabase } from '@/supabase'
   import { useAuth } from '@/composables/useAuth'
-  import { userTicketStore } from '@/stores/userTickets'
 
-  interface Raffle {
+ interface Raffle {
     id: number
     title: string
     image: string
@@ -17,6 +16,15 @@
     entrants: number
     drawMethod: string
     drawDate: string
+    winnerId?: string
+    winningTicketNumber?: number
+    status?: string
+  }
+
+  interface TicketRecord {
+    raffle_id: number
+    ticket_number: number
+    user_id?: string // Made optional since queries only fetch raffle_id and ticket_number
   }
 
   const router = useRouter()
@@ -26,6 +34,14 @@
 
   const raffles = ref<Raffle[]>([])
   const loadingRaffles = ref(true)
+  const userTicketsMap = ref<Record<number, number[]>>({})
+  const soldTicketsSet = ref<Record<number, Set<number>>>({})
+
+  // Purchase state
+  const ticketQuantity = ref(1)
+  const purchasing = ref(false)
+  const purchaseError = ref('')
+  const purchaseSuccess = ref('')
 
   // Live timer state (updates every second)
   const now = ref(new Date().getTime())
@@ -38,18 +54,25 @@
 
     await fetchRaffles()
     await checkAdminStatus()
+    if (user.value) {
+      await fetchUserTickets()
+    }
   })
 
-  // Re-check admin status if user changes
-  watch(user, async () => {
+  watch(user, async (newUser) => {
     await checkAdminStatus()
+    if (newUser) {
+      await fetchUserTickets()
+    } else {
+      userTicketsMap.value = {}
+    }
   })
 
   onUnmounted(() => {
     if (timerId) clearInterval(timerId)
   })
 
-  // Fetch raffles from Supabase
+// Fetch raffles and trigger auto-draw for expired ones
   const fetchRaffles = async () => {
     try {
       loadingRaffles.value = true
@@ -60,8 +83,26 @@
 
       if (error) throw error
 
-      // Map database columns (snake_case) to frontend interface (camelCase)
-      raffles.value = (data || []).map((r: any) => ({
+      const currentTime = new Date().getTime()
+      const gracePeriod = 15 * 60 * 1000
+
+      // Automatically trigger draws for any ended raffles missing a winner
+      for (const r of (data || [])) {
+        const endTime = new Date(r.end_date).getTime()
+        if (currentTime > endTime + gracePeriod && !r.winner_id) {
+          await supabase.rpc('execute_raffle_draw', { target_raffle_id: r.id })
+        }
+      }
+
+      // Re-fetch updated raffles list after potential automated draws
+      const { data: updatedData, error: updateError } = await supabase
+        .from('raffles')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (updateError) throw updateError
+
+      raffles.value = (updatedData || []).map((r: any) => ({
         id: r.id,
         title: r.title,
         image: r.image,
@@ -72,12 +113,48 @@
         endDate: r.end_date,
         entrants: r.entrants,
         drawMethod: r.draw_method,
-        drawDate: r.draw_date
+        drawDate: r.draw_date,
+        winnerId: r.winner_id,
+        winningTicketNumber: r.winning_ticket_number,
+        status: r.status
       }))
+
+      // Fetch all sold tickets to map grid availability accurately
+      const { data: ticketData } = await supabase.from('tickets').select('raffle_id, ticket_number')
+      const map: Record<number, Set<number>> = {}
+      if (ticketData) {
+        ticketData.forEach((t: { raffle_id: number; ticket_number: number }) => {
+          if (!map[t.raffle_id]) map[t.raffle_id] = new Set()
+          map[t.raffle_id].add(t.ticket_number)
+        })
+      }
+      soldTicketsSet.value = map
     } catch (err) {
       console.error('Error fetching raffles:', err)
     } finally {
       loadingRaffles.value = false
+    }
+  }
+
+  // Fetch current user's tickets
+  const fetchUserTickets = async () => {
+    if (!user.value) return
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('raffle_id, ticket_number')
+        .eq('user_id', user.value.id)
+
+      if (error) throw error
+
+      const map: Record<number, number[]> = {}
+      data?.forEach((t: TicketRecord) => {
+        if (!map[t.raffle_id]) map[t.raffle_id] = []
+        map[t.raffle_id].push(t.ticket_number)
+      })
+      userTicketsMap.value = map
+    } catch (err) {
+      console.error('Error fetching user tickets:', err)
     }
   }
 
@@ -100,34 +177,111 @@
         isAdmin.value = false
       }
     } catch (err) {
-      console.error('Error checking admin status:', err)
       isAdmin.value = false
     }
   }
 
-  // Tracks which raffle is open in the overlay
+  // Overlay state
   const selectedRaffle = ref<Raffle | null>(null)
 
   const openOverlay = (raffle: Raffle) => {
     selectedRaffle.value = raffle
+    ticketQuantity.value = 1
+    purchaseError.value = ''
+    purchaseSuccess.value = ''
   }
 
   const closeOverlay = () => {
     selectedRaffle.value = null
   }
 
-  // Returns the ticket numbers the user owns for a given raffle
   const getMyTickets = (raffleId: number) => {
-    return userTicketStore[raffleId] || []
+    return userTicketsMap.value[raffleId] || []
   }
 
-  // Handles the enter raffle button, redirects if not logged in
-  const handleEnter = (raffle: Raffle) => {
+  const isTicketSold = (raffleId: number, n: number) => {
+    return soldTicketsSet.value[raffleId]?.has(n) || false
+  }
+
+  // Handle Ticket Purchase Checkout
+  const handlePurchase = async (raffle: Raffle) => {
     if (!isLoggedIn.value) {
       router.push('/login')
       return
     }
-    console.log('entering raffle', raffle.id)
+
+    purchaseError.value = ''
+    purchaseSuccess.value = ''
+
+    const remainingTickets = raffle.ticketsTotal - raffle.ticketsSold
+    if (ticketQuantity.value > remainingTickets) {
+      purchaseError.value = `Only ${remainingTickets} tickets remaining.`
+      return
+    }
+
+    try {
+      purchasing.value = true
+
+      // Find available ticket numbers
+      const soldSet = soldTicketsSet.value[raffle.id] || new Set()
+      const availableNumbers: number[] = []
+      for (let i = 1; i <= raffle.ticketsTotal; i++) {
+        if (!soldSet.has(i)) availableNumbers.push(i)
+      }
+
+      // Randomly pick N available numbers
+      const chosenNumbers: number[] = []
+      for (let i = 0; i < ticketQuantity.value; i++) {
+        const randomIndex = Math.floor(Math.random() * availableNumbers.length)
+        chosenNumbers.push(availableNumbers.splice(randomIndex, 1)[0])
+      }
+
+      // Insert tickets into Supabase
+      const insertPayload = chosenNumbers.map(num => ({
+        raffle_id: raffle.id,
+        user_id: user.value!.id,
+        ticket_number: num
+      }))
+
+      const { error: ticketError } = await supabase.from('tickets').insert(insertPayload)
+      if (ticketError) throw ticketError
+
+      // Check if user already entered this raffle before
+      const userAlreadyEntered = getMyTickets(raffle.id).length > 0
+      const newEntrantsCount = userAlreadyEntered ? raffle.entrants : raffle.entrants + 1
+      const newTicketsSold = raffle.ticketsSold + ticketQuantity.value
+
+      // Update raffle stats in Supabase
+      const { error: raffleError } = await supabase
+        .from('raffles')
+        .update({
+          tickets_sold: newTicketsSold,
+          entrants: newEntrantsCount
+        })
+        .eq('id', raffle.id)
+
+      if (raffleError) throw raffleError
+
+      purchaseSuccess.value = `Successfully purchased ${ticketQuantity.value} ticket(s)!`
+
+      // Refresh local data
+      await fetchRaffles()
+      await fetchUserTickets()
+
+      // Keep overlay updated
+      const updatedRaffle = raffles.value.find(r => r.id === raffle.id)
+      if (updatedRaffle) selectedRaffle.value = updatedRaffle
+
+    } catch (err: unknown) {
+      console.error('Error purchasing tickets:', err)
+      if (err && typeof err === 'object' && 'message' in err) {
+        purchaseError.value = (err as { message: string }).message
+      } else {
+        purchaseError.value = 'Failed to purchase tickets.'
+      }
+    } finally {
+      purchasing.value = false
+    }
   }
 
   // Live countdown calculation
@@ -146,14 +300,12 @@
     return `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
   }
 
-  // Check if raffle is within the 15-minute post-end grace period
   const isDrawInProgress = (endDate: string) => {
     const endTime = new Date(endDate).getTime()
     const gracePeriod = 15 * 60 * 1000
     return now.value > endTime && now.value <= endTime + gracePeriod
   }
 
-  // Filter out raffles that ended more than 15 minutes ago
   const activeRaffles = computed(() => {
     const gracePeriod = 15 * 60 * 1000
     return raffles.value.filter(raffle => {
@@ -162,14 +314,13 @@
     })
   })
 
-  // Raffle progress bar
   const percentSold = (sold: number, total: number) => {
     return Math.round((sold / total) * 100)
   }
 
   // Pagination
   const currentPage = ref(1)
-  const perPage = 6 // 3 columns x 2 rows
+  const perPage = 6
   const totalPages = computed(() => Math.ceil(activeRaffles.value.length / perPage))
 
   const paginatedRaffles = computed(() => {
@@ -185,8 +336,7 @@
 <template>
   <div class="raffles">
     <div class="header-row">
-      <h1 class="home-title">Active Raffles</h1>
-      <!-- Admin Action Buttons -->
+      <h1 class="home-title accent-title">Active Raffles</h1>
       <div v-if="isAdmin" class="admin-actions-bar">
         <router-link to="/admin/create-raffle" class="admin-action-btn">
           Create Raffle
@@ -213,18 +363,18 @@
                 <div class="progress-bar">
                   <div class="progress-fill" :style="{ width: percentSold(raffle.ticketsSold, raffle.ticketsTotal) + '%'}"></div>
                 </div>
-                <span class="progress-text">{{ raffle.ticketsSold}} / {{ raffle.ticketsTotal }} tickets sold</span>
+                <span class="progress-text">{{ raffle.ticketsSold }} / {{ raffle.ticketsTotal }} tickets sold</span>
               </div>
             </div>
 
             <div class="raffle-footer">
-              <span class="raffle-price">£{{ raffle.ticketPrice}} / per ticket</span>
+              <span class="raffle-price">🪙{{ raffle.ticketPrice }} / per ticket</span>
               <span class="raffle-days">{{ getTimeRemaining(raffle.endDate) }}</span>
             </div>
 
             <button
               class="raffle-btn"
-              @click.stop="handleEnter(raffle)"
+              @click.stop="openOverlay(raffle)"
               :disabled="isDrawInProgress(raffle.endDate)"
               :class="{ 'disabled-btn': isDrawInProgress(raffle.endDate) }"
             >
@@ -249,15 +399,12 @@
     <Transition name="fade">
       <div class="overlay-backdrop" v-if="selectedRaffle" @click.self="closeOverlay">
         <div class="overlay-card no-scrollbar">
-          <!-- close button -->
           <button class="overlay-close" @click="closeOverlay">
             <i class="fa-solid fa-xmark"></i>
           </button>
 
-          <!-- image -->
           <img class="overlay-image" :src="selectedRaffle.image" :alt="selectedRaffle.title"/>
 
-          <!-- details -->
           <div class="overlay-body">
             <h2 class="overlay-title">{{ selectedRaffle.title }}</h2>
             <p class="overlay-prize">🏆 Prize: {{ selectedRaffle.prize }}</p>
@@ -265,7 +412,7 @@
             <div class="overlay-info-grid">
               <div class="overlay-info-item">
                 <span class="overlay-info-label">Ticket Price</span>
-                <span class="overlay-info-value">£{{ selectedRaffle.ticketPrice }}</span>
+                <span class="overlay-info-value">{{ selectedRaffle.ticketPrice }}</span>
               </div>
               <div class="overlay-info-item">
                 <span class="overlay-info-label">Total Entrants</span>
@@ -273,7 +420,7 @@
               </div>
               <div class="overlay-info-item">
                 <span class="overlay-info-label">Draw Date</span>
-                <span class="overlay-info-value">{{ selectedRaffle.drawDate }}</span>
+                <span class="overlay-info-value">{{ new Date(selectedRaffle.drawDate).toLocaleString() }}</span>
               </div>
               <div class="overlay-info-item">
                 <span class="overlay-info-label">Time Remaining</span>
@@ -286,7 +433,7 @@
               <p class="overlay-draw-text">{{ selectedRaffle.drawMethod }}</p>
             </div>
 
-            <!-- your tickets if logged in and entered -->
+            <!-- Your Tickets -->
             <div class="overlay-my-tickets" v-if="isLoggedIn && getMyTickets(selectedRaffle.id).length > 0">
               <span class="overlay-info-label">Your Tickets</span>
               <div class="my-ticket-numbers">
@@ -300,7 +447,7 @@
               </div>
             </div>
 
-            <!-- ticket grid -->
+            <!-- Ticket Grid Preview -->
             <div class="overlay-tickets">
               <span class="overlay-info-label">Tickets — {{ selectedRaffle.ticketsSold }} sold / {{ selectedRaffle.ticketsTotal - selectedRaffle.ticketsSold }} remaining</span>
               <div class="ticket-grid">
@@ -309,22 +456,40 @@
                   :key="n"
                   :class="[
                     'ticket-square',
-                    n <= selectedRaffle.ticketsSold ? 'ticket-sold' : 'ticket-available',
+                    isTicketSold(selectedRaffle.id, n) ? 'ticket-sold' : 'ticket-available',
                     getMyTickets(selectedRaffle.id).includes(n) ? 'ticket-mine' : ''
                   ]"
-                  :title="n <= selectedRaffle.ticketsSold ? `Ticket #${n} - Sold` : `Ticket #${n} - Available`"
+                  :title="isTicketSold(selectedRaffle.id, n) ? `Ticket #${n} - Sold` : `Ticket #${n} - Available`"
                 ></div>
               </div>
             </div>
 
-            <button
-              class="raffle-btn overlay-enter-btn"
-              @click="handleEnter(selectedRaffle)"
-              :disabled="isDrawInProgress(selectedRaffle.endDate)"
-              :class="{ 'disabled-btn': isDrawInProgress(selectedRaffle.endDate) }"
-            >
-              {{ !isLoggedIn ? 'Login to Enter' : (isDrawInProgress(selectedRaffle.endDate) ? 'Draw in Progress 🎲' : 'Enter Raffle') }}
-            </button>
+            <!-- Checkout Section -->
+            <div class="checkout-box" v-if="!isDrawInProgress(selectedRaffle.endDate)">
+              <div v-if="purchaseError" class="error-banner">{{ purchaseError }}</div>
+              <div v-if="purchaseSuccess" class="success-banner">{{ purchaseSuccess }}</div>
+
+              <div class="checkout-row" v-if="isLoggedIn">
+                <div class="quantity-selector">
+                  <label class="overlay-info-label">Select Quantity</label>
+                  <input v-model.number="ticketQuantity" class="profile-input qty-input" type="number" min="1" :max="selectedRaffle.ticketsTotal - selectedRaffle.ticketsSold" />
+                </div>
+                <div class="checkout-total">
+                  <span class="overlay-info-label">Total Cost</span>
+                  <span class="total-price-value">🪙{{ ticketQuantity * selectedRaffle.ticketPrice }}</span>
+                </div>
+              </div>
+
+              <button
+                class="raffle-btn overlay-enter-btn"
+                @click="handlePurchase(selectedRaffle)"
+                :disabled="purchasing"
+              >
+                {{ !isLoggedIn ? 'Login to Enter' : (purchasing ? 'Processing... 💳' : `Buy ${ticketQuantity} Ticket(s) (🪙${ticketQuantity * selectedRaffle.ticketPrice})`) }}
+              </button>
+            </div>
+
+            <div v-else class="error-banner text-center">Draw in progress. Ticket sales are closed.</div>
           </div>
         </div>
       </div>
@@ -335,6 +500,9 @@
 <style scoped>
   .raffles{
     padding: 0 0 40px;
+  }
+  .accent-title {
+    color: #F5C842 !important;
   }
   .header-row {
     display: flex;
@@ -391,6 +559,7 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    cursor: pointer;
   }
   .raffle-card:hover{
     transform: translateY(-4px);
@@ -494,7 +663,7 @@
     color: #0B1220;
     border-color: #F5C842;
   }
-  /* Overlay Styles*/
+  /* Overlay Styles */
   .overlay-backdrop{
     position: fixed;
     top: 0;
@@ -618,12 +787,16 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(16px, 1fr));
     gap: 3px;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 4px;
+    background-color: #0B1220;
+    border-radius: 8px;
   }
   .ticket-square {
     width: 16px;
     height: 16px;
     border-radius: 2px;
-    cursor: pointer;
   }
   .ticket-available {
     background-color: #1e3a5f;
@@ -634,6 +807,44 @@
   }
   .ticket-mine {
     background-color: #F5C842 !important;
+  }
+  .checkout-box {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background-color: #0B1220;
+    padding: 16px;
+    border-radius: 8px;
+  }
+  .checkout-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  .quantity-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+  .qty-input {
+    background-color: #16263A;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #E6EDF3;
+  }
+  .checkout-total {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+  }
+  .total-price-value {
+    color: #F5C842;
+    font-size: 18px;
+    font-weight: 600;
   }
   .overlay-enter-btn {
     width: 100%;
@@ -646,5 +857,22 @@
     text-align: center;
     padding: 40px;
     font-size: 15px;
+  }
+  .error-banner {
+    background-color: rgba(255, 107, 107, 0.1);
+    color: #ff6b6b;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .success-banner {
+    background-color: rgba(46, 204, 113, 0.1);
+    color: #2ecc71;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .text-center {
+    text-align: center;
   }
 </style>

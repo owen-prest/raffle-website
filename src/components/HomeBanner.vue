@@ -1,17 +1,19 @@
 <script setup lang="ts">
-  import bannerimage from '@/assets/images/banner.jpg'
+  import bannerimage from '@/assets/images/banner.png'
 </script>
 
 <template>
  <h1 class="home-title">Welcome to Winna Raffle!</h1>
   <div class="banner">
     <div class="banner-overlay">
+      <!--
       <div class="banner-text">You could be a winner today!</div>
       <div class="banner-text" to="/login">
         <RouterLink class="link-hover shake" to="/login">Sign up today!</RouterLink>
       </div>
+      -->
     </div>
-    <img class="banner-image" :src="bannerimage" alt="raffle image">
+    <img class="banner-image shake" :src="bannerimage" alt="raffle image" @click="() => $router.push('/raffles')">
   </div>
 </template>
 
@@ -25,6 +27,7 @@
     max-height: 500px;
     object-fit:cover;
     display: block; /* removes the small gap below the image */
+    cursor:pointer;
   }
   .banner-overlay{
     position: absolute;
