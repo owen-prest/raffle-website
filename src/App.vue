@@ -74,4 +74,10 @@
       transform: rotate(360deg);
     }
   }
+
+  .home-title{
+    color: #f5c842;
+    font-size: 32px;
+    padding: 20px 60px;
+  }
 </style>
