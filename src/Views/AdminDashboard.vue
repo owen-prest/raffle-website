@@ -1,125 +1,148 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { supabase } from '@/supabase'
+  import { ref, onMounted } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { supabase } from '@/supabase'
 
-interface AdminApplication {
-  id: string
-  user_id: string
-  reason: string
-  status: 'pending' | 'approved' | 'rejected'
-  created_at: string
-  profiles?: {
+  interface AdminApplication {
+    id: string // Changed from number to string (UUID)
+    user_id: string
+    reason: string
+    status: 'pending' | 'approved' | 'rejected'
+    created_at: string
+    profiles?: {
+      id: string
+      username: string
+      full_name: string
+    }
+  }
+
+  interface RpcApplication {
+    id: string // Changed from number to string (UUID)
+    user_id: string
+    reason: string
+    status: 'pending' | 'approved' | 'rejected'
+    created_at: string
+    profile_id: string
     username: string
     full_name: string
-  }[]
-}
-
-const router = useRouter()
-const applications = ref<AdminApplication[]>([])
-const loading = ref(true)
-const isAdmin = ref(false)
-const actionLoading = ref<string | null>(null)
-const errorMessage = ref('')
-const successMessage = ref('')
-
-// Check if current user is an admin
-const checkAdminStatus = async () => {
-  try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      router.push('/login')
-      return
-    }
-
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || !profileData?.is_admin) {
-      router.push('/')
-      return
-    }
-
-    isAdmin.value = true
-  } catch (err) {
-    console.error('Error verifying admin status:', err)
-    router.push('/')
   }
-}
 
-const fetchApplications = async () => {
-  try {
-    loading.value = true
-    errorMessage.value = ''
+  // Update actionLoading to track string UUIDs instead of numbers
+  const actionLoading = ref<string | null>(null)
 
-    const { data, error } = await supabase
-      .from('admin_applications')
-      .select(`
-        id,
-        user_id,
-        reason,
-        status,
-        created_at,
-        profiles (
-          username,
-          full_name
-        )
-      `)
-      .order('created_at', { ascending: false })
+  const router = useRouter()
+  const applications = ref<AdminApplication[]>([])
+  const loading = ref(true)
+  const isAdmin = ref(false)
+  const errorMessage = ref('')
+  const successMessage = ref('')
 
-    if (error) throw error
-    applications.value = data || []
-  } catch (err: unknown) {
-    console.error('Error fetching applications:', err)
-    errorMessage.value = 'Failed to load applications.'
-  } finally {
-    loading.value = false
-  }
-}
+  // Check if current user is an admin
+  const checkAdminStatus = async () => {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        router.push('/login')
+        return
+      }
 
-const handleAction = async (appId: string, userId: string, newStatus: 'approved' | 'rejected') => {
-  try {
-    actionLoading.value = appId
-    errorMessage.value = ''
-    successMessage.value = ''
-
-    // 1. Update application status
-    const { error: appError } = await supabase
-      .from('admin_applications')
-      .update({ status: newStatus })
-      .eq('id', appId)
-
-    if (appError) throw appError
-
-    // 2. If approved, update user's profile to is_admin = true
-    if (newStatus === 'approved') {
-      const { error: profileError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .update({ is_admin: true })
-        .eq('id', userId)
+        .select('is_admin')
+        .eq('id', user.id)
+        .single()
 
-      if (profileError) throw profileError
+      if (profileError || !profileData?.is_admin) {
+        router.push('/')
+        return
+      }
+
+      isAdmin.value = true
+    } catch (err: unknown) {
+      console.error('Error verifying admin status:', err)
+      router.push('/')
     }
-
-    successMessage.value = `Application successfully ${newStatus}!`
-    await fetchApplications()
-  } catch (err: unknown) {
-    console.error('Error processing application:', err)
-    errorMessage.value = 'Failed to update application.'
-  } finally {
-    actionLoading.value = null
   }
-}
 
-onMounted(async () => {
-  await checkAdminStatus()
-  if (isAdmin.value) {
-    await fetchApplications()
+  const fetchApplications = async () => {
+    try {
+      loading.value = true
+      errorMessage.value = ''
+
+      const { data, error } = await supabase.rpc('get_admin_applications')
+
+      if (error) throw error
+
+      const rawData = (data as RpcApplication[]) || []
+
+      applications.value = rawData.map((app) => ({
+        id: app.id,
+        user_id: app.user_id,
+        reason: app.reason,
+        status: app.status,
+        created_at: app.created_at,
+        profiles: app.profile_id
+          ? {
+              id: app.profile_id,
+              username: app.username,
+              full_name: app.full_name,
+            }
+          : undefined,
+      }))
+    } catch (err: unknown) {
+      let errMessage = 'Unknown error occurred'
+      if (err instanceof Error) {
+        errMessage = err.message
+      } else if (typeof err === 'object' && err !== null && 'message' in err) {
+        errMessage = String((err as { message: unknown }).message)
+      } else if (typeof err === 'string') {
+        errMessage = err
+      }
+      console.error('Error loading admin applications:', err)
+      errorMessage.value = `Supabase Error: ${errMessage}`
+    } finally {
+      loading.value = false
+    }
   }
-})
+
+  const handleAction = async (appId: number, userId: string, newStatus: 'approved' | 'rejected') => {
+    try {
+      actionLoading.value = appId
+      errorMessage.value = ''
+      successMessage.value = ''
+
+      const { error: appError } = await supabase
+        .from('admin_applications')
+        .update({ status: newStatus })
+        .eq('id', appId)
+
+      if (appError) throw appError
+
+      if (newStatus === 'approved') {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ is_admin: true })
+          .eq('id', userId)
+
+        if (profileError) throw profileError
+      }
+
+      successMessage.value = `Application successfully ${newStatus}!`
+      await fetchApplications()
+    } catch (err: unknown) {
+      console.error('Error processing application:', err)
+      errorMessage.value = 'Failed to update application.'
+    } finally {
+      actionLoading.value = null
+    }
+  }
+
+  onMounted(async () => {
+    await checkAdminStatus()
+    if (isAdmin.value) {
+      await fetchApplications()
+    }
+  })
 </script>
 
 <template>
@@ -128,20 +151,21 @@ onMounted(async () => {
 
     <div v-if="loading && !isAdmin" class="loading-state">Verifying access...</div>
 
-    <div v-else-if="!isAdmin" class="access-denied">
-      <p>Access denied. You must be an administrator to view this page.</p>
-    </div>
+      <div v-else-if="!isAdmin" class="access-denied">
+        <p>Access denied. You must be an administrator to view this page.</p>
+      </div>
 
-    <div v-else class="admin-container">
-      <div v-if="errorMessage" class="error-banner">{{ errorMessage }}</div>
+      <div v-else class="admin-container">
+        <div v-if="errorMessage" class="error-banner">{{ errorMessage }}</div>
       <div v-if="successMessage" class="success-banner">{{ successMessage }}</div>
 
       <div class="applications-grid" v-if="!loading">
         <div v-for="app in applications" :key="app.id" class="profile-card app-card">
           <div class="app-header">
             <div>
-              <h3 class="app-user">{{ app.profiles?.[0]?.full_name || 'Anonymous User' }}</h3>
-              <span class="app-username">@{{ app.profiles?.[0]?.username || 'unknown' }}</span>
+              <!-- FIXED: Removed [0] since profiles is now a single object -->
+              <h3 class="app-user">{{ app.profiles?.full_name || 'Anonymous User' }}</h3>
+              <span class="app-username">@{{ app.profiles?.username || 'unknown' }}</span>
             </div>
             <span :class="['badge', app.status]">{{ app.status.toUpperCase() }}</span>
           </div>
@@ -264,5 +288,11 @@ onMounted(async () => {
 .access-denied, .empty-text {
   color: #6a849e;
   padding: 0 60px;
+}
+.home-title {
+  color: #f5c842;
+  font-size: 24px;
+  padding:20px 60px;
+  margin-bottom: 20px;
 }
 </style>

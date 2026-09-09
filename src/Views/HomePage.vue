@@ -12,9 +12,9 @@
 
 <style>
 .home-title{
-  color: #E6EDF3;
+  color: #f5c842;
   font-size: 32px;
-  padding: 35px 0 35px 40px;
+  padding: 20px 60px;
 }
 .home{
   background-color: #0B1220;
