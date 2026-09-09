@@ -6,10 +6,31 @@ import type { User, Session } from '@supabase/supabase-js'
 // Centralized state defined outside the composable to ensure single shared instance across app
 const user = ref<User | null>(null)
 const session = ref<Session | null>(null)
+const profile = ref<any | null>(null) // Added to track public.profiles data (balance, etc.)
 const isLoading = ref<boolean>(true) // Start as true while checking storage on load
 
 // Flag to guarantee setup logic only runs once globally
 let isInitialized = false
+
+const fetchProfile = async () => {
+  if (!user.value) {
+    profile.value = null
+    return
+  }
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.value.id)
+      .single()
+
+    if (!error) {
+      profile.value = data
+    }
+  } catch (err) {
+    console.error('Error fetching profile:', err)
+  }
+}
 
 const initAuth = async () => {
   if (isInitialized) return
@@ -20,6 +41,9 @@ const initAuth = async () => {
     const { data } = await supabase.auth.getSession()
     session.value = data.session
     user.value = data.session?.user ?? null
+    if (user.value) {
+      await fetchProfile()
+    }
   } catch (err) {
     console.error('Error fetching session:', err)
   } finally {
@@ -27,9 +51,14 @@ const initAuth = async () => {
   }
 
   // 2. Listen for auth changes (logins, logouts, auto token refreshes)
-  supabase.auth.onAuthStateChange((_event, sessionData) => {
+  supabase.auth.onAuthStateChange(async (_event, sessionData) => {
     session.value = sessionData
     user.value = sessionData?.user ?? null
+    if (user.value) {
+      await fetchProfile()
+    } else {
+      profile.value = null
+    }
     isLoading.value = false
   })
 }
@@ -46,6 +75,7 @@ export function useAuth() {
     })
 
     if (error) throw error
+    await fetchProfile()
     return data
   }
 
@@ -72,6 +102,7 @@ export function useAuth() {
       })
 
       if (profileError) console.error('Error creating profile:', profileError)
+      await fetchProfile()
     }
 
     return data
@@ -80,13 +111,16 @@ export function useAuth() {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
+    profile.value = null
   }
 
   // Explicitly return auth state and helper functions
   return {
     user: readonly(user),
     session: readonly(session),
+    profile: readonly(profile), // 💡 Exposed profile state
     isLoading: readonly(isLoading),
+    refreshProfile: fetchProfile, // 💡 Exposed method to reload balance/profile on demand
     signIn,
     signUp,
     signOut
