@@ -1,0 +1,64 @@
+/* src/assets/global.css */
+
+/* global link hover effect*/
+.link-hover {
+  color: inherit;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  background-color: transparent;
+}
+.link-hover:hover {
+  color: #F5C842;
+  transform: translateY(-2px);
+}
+
+/* global shake function effect*/
+@keyframes shake {
+  0%, 70%, 100%  { transform: translateX(0); }
+  75% { transform: translateX(-5px); }
+  80% { transform: translateX(-5px); }
+  85% { transform: translateX(5px); }
+  90% { transform: translateX(-5px); }
+  95%{ transform: translateX(5px); }
+}
+
+.shake {
+  display: inline-block;
+  animation-name: shake;
+  animation-duration: 6s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease;
+}
+
+/* global button squish effect */
+button {
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+button:active { transform: scale(0.95);}
+
+/* Removes any background color from awesome font icons*/
+.fa, .fas, .far, .fal, .fab, .fat, .fak,
+[class^="fa-"],
+[class*=" fa-"] {
+  background-color: transparent !important;}
+
+/* global fade in and out effect*/
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}

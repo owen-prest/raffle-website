@@ -27,6 +27,18 @@ declare module '@/constants/navigation' {
   export const navLinks: NavItem[];
 }
 ```
+### 2. Backend & Database Architecture (Supabase)
+**Challenge:** A raffle system requires rigorous data integrity, user authentication, and real-time state tracking (like live ticket counters) without the overhead of building and securing a custom server from scratch.
+
+**Solution:** Integrated Supabase (PostgreSQL + BaaS) to handle the backend infrastructure:
+
+Data Integrity & ACID Compliance: Relational tables ensure race conditions during ticket purchases are prevented and transactions remain completely secure.
+
+Security via Row Level Security (RLS): Native database-level security policies ensure users can only read or mutate authorized data, such as their own ticket history.
+
+Type Safety Synergy: Utilizing Supabase's CLI to generate native TypeScript types directly from the database schema, bridging backend structures seamlessly with the Vue frontend.
+
+Realtime Capabilities: Built-in WebSocket subscriptions enable live updates for ticket tracking and winner announcements without manual page refreshes.
 
 ## Project Setup
 *   `yarn install`: Install dependencies (including Swiper.js for the carousel).
